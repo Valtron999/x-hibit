@@ -17,7 +17,7 @@ export default function PostCard({ post }: Props) {
       activeOpacity={0.9}
       onPress={() =>
         router.push({
-          pathname: "/screen",
+          pathname: "/screen/details/[id]",
           params: { id: post.id },
         })
       }
@@ -39,17 +39,10 @@ export default function PostCard({ post }: Props) {
         <Text style={{ fontWeight: "600" }}>
           {user?.username || "Unknown"}
         </Text>
-        <TouchableOpacity>
-            <Image />
-        </TouchableOpacity>
 
-        {/* <Text numberOfLines={2} style={{ fontSize: 12, color: "#555" }}>
+        <Text numberOfLines={1} style={{ fontSize: 12, color: "#555" }}>
           {post.description}
         </Text>
-
-        <Text style={{ fontSize: 11, color: "#999" }}>
-          ❤️ {post.likes} · 💬 {post.commentsCount}
-        </Text> */}
       </View>
     </TouchableOpacity>
   );

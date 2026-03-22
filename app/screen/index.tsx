@@ -1,13 +1,17 @@
+import CategoryTabs from "@/components/category";
 import PostCard from "@/components/PostCard";
 import { Images } from "@/constants/images";
+import { categories } from "@/data/category";
 import { postsData } from "@/data/posts";
 import MasonryList from "@react-native-seoul/masonry-list";
-import { Image, ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { useState } from "react";
+import { Image, ScrollView, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Home = () => {
     const { width } = useWindowDimensions();
     const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
+    const [activeCategory, setActiveCategory] = useState("1");
     return(
         <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: "#030303" }}>       
@@ -17,27 +21,22 @@ const Home = () => {
 
                 </TouchableOpacity>
             </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 20, marginBottom: 20 }}>
-                <TouchableOpacity style={{ width: 141.0, height: 43.0, backgroundColor: "#ED3237", borderRadius: 6, justifyContent: "center", alignItems: "center", marginRight: 10 }}>
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "bold" }}>For You</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ width: 141.0, height: 43.0, backgroundColor: "#848688", borderRadius: 6, justifyContent: "center", alignItems: "center", marginRight: 10 }}>
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "bold" }}>Following</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ width: 141.0, height: 43.0, backgroundColor: "#848688", borderRadius: 6, justifyContent: "center", alignItems: "center", marginRight: 10 }}>
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "bold" }}>Graphics</Text>
-                </TouchableOpacity>
-            </ScrollView>
-                    <View>
-      <MasonryList
-        data={postsData}
-        keyExtractor={(item) => item.id}
-        numColumns={numColumns}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => <PostCard post={item} />}
-      />
-    </View>
+            <View>
+                <CategoryTabs
+                    data={categories}
+                    activeCategory={activeCategory}
+                    onSelect={(id) => setActiveCategory(id)}
+                />
+            </View>
+            <View>
+            <MasonryList
+                data={postsData}
+                keyExtractor={(item) => item.id}
+                numColumns={numColumns}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => <PostCard post={item} />}
+            />
+            </View>
             </ScrollView>
 
         </SafeAreaView>
