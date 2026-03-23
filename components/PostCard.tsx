@@ -28,7 +28,7 @@ export default function PostCard({ post }: Props) {
         source={{ uri: post.image }}
         style={{
           width: "100%",
-          height: 200 * post.aspectRatio, // dynamic height
+          height: 200 * post.aspectRatio,
           borderRadius: 12,
         }}
         resizeMode="cover"

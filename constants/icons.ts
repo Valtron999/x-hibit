@@ -5,6 +5,7 @@ import heartInactive from "@/assets/icons/heart.png"
 import hide from "@/assets/icons/hide.png"
 import menu from "@/assets/icons/menu.png"
 import comment from "@/assets/icons/oval-empty-outlined-speech-bubble.png"
+import setting from "@/assets/icons/settings.png"
 import show from "@/assets/icons/view.png"
 
 export const Icons = {
@@ -12,6 +13,7 @@ export const Icons = {
     show,
     hide,
     menu,
+    setting,
     heartActive,
     heartInactive,
     comment,

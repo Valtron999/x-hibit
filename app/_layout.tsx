@@ -55,6 +55,13 @@ export default function RootLayout() {
           headerShown: false
         }}
       />
+      <Stack.Screen
+        name="screen/users/profile"
+        options={{
+          title: "User Profile",
+          headerShown: false
+        }}
+      />
     </Stack>
   );
 }
