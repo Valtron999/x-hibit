@@ -36,7 +36,7 @@ const Home = () => {
                 keyExtractor={(item) => item.id}
                 numColumns={numColumns}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => <PostCard post={item} />}
+                renderItem={({ item }) => <PostCard post={item as any} />}
             />
             </View>
             </ScrollView>

@@ -4,17 +4,20 @@ import { postsData } from "@/data/posts";
 import { users } from "@/data/users";
 import MasonryList from "@react-native-seoul/masonry-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import {
-    Image,
-    ImageBackground,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Image,
+  ImageBackground,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
 } from "react-native";
 
 const Details = () => {
+  const [visible, setVisible] = useState(false);
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
@@ -100,16 +103,18 @@ const Details = () => {
 
           <Image
             source={Icons.comment}
-            style={{ width: 24, height: 24, marginHorizontal: 5 }}
+            style={{ width: 24, height: 24, marginLeft: 20, marginRight: 5 }}
           />
           <Text style={{ color: "#D4D2D3", fontSize: 18 }}>
             {post.commentsCount}
           </Text>
-
+          
+          <TouchableOpacity onPress={() => setVisible(true)}>
           <Image
             source={Icons.share}
-            style={{ width: 24, height: 24, marginHorizontal: 5 }}
+            style={{ width: 24, height: 24, marginLeft: 20, }}
           />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -238,10 +243,85 @@ const Details = () => {
             data={postsData}
             keyExtractor={(item) => item.id}
             numColumns={numColumns}
-            renderItem={({ item }) => <PostCard post={item} />}
+            renderItem={({ item }) => <PostCard post={item as any} />}
           />
         </View>
       </View>
+
+      {/* Modal */}
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={{
+              flex: 1,
+              backgroundColor: "rgba(24, 1, 1, 0.5)",
+              justifyContent: "center",
+              alignItems: "center",
+          }}>
+          <View style={{
+                width: "80%",
+                backgroundColor: "#000000",
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                borderRadius: 12,
+                // alignItems: "center",
+          }}>
+
+          <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%"}}>
+            <Text style={{
+              color: "#fefefe",
+              fontWeight: "bold",
+              fontSize: 16,
+            }}> Share</Text>
+
+            <TouchableOpacity onPress={() => setVisible(false)} style={{backgroundColor: "#1A1919", padding: 10, borderRadius: 6, width: 35, height: 35, justifyContent: "center", alignItems: "center", }}>
+              <Text style={{color: "#c9c9c9"}}>X</Text>
+            </TouchableOpacity>
+          </View>
+          
+            <Text style={{
+              color: "#686666",
+              fontWeight: "bold",
+              fontSize: 16,
+              marginTop: 20
+
+            }}> Share link via</Text>
+          <View style={{marginTop: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%"}}>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginRight: 5}}>
+              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#3b5998", marginRight: 5}} />
+              
+            </TouchableOpacity>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            </TouchableOpacity>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            </TouchableOpacity>
+          </View>
+            <Text style={{
+              color: "#686666",
+              fontWeight: "bold",
+              fontSize: 16,
+              marginTop: 20
+
+            }}> Page Direct</Text>
+            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 20, borderRadius: 12, flex: 1, marginLeft: 5, marginTop:10, marginHorizontal: 10, marginBottom: 10, }}>
+              <Image source={Icons.setting} style={{width: 20, height: 20, tintColor: "#00acee", marginRight: 5, }} />
+              <Text style={{color: "#fefefe",fontWeight: "bold", marginLeft: 5, }}>Copy Link</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 };

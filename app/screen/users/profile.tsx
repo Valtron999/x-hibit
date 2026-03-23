@@ -10,27 +10,27 @@ import { users } from "@/data/users";
 const Profile = () => {
     const router = useRouter();
 
-    // 🔥 toggle state
+    //  toggle state
     const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
 
-    // 🔥 simulate logged in user
+    //  simulate logged in user
     const currentUser = users.find((user) => user.id === "u1");
     if (!currentUser) return null;
 
-    // 🔥 user posts
+    //  user posts
     const userPosts = postsData.filter(
         (post) => post.userId === currentUser.id
     );
 
-    // 🔥 saved posts
+    //  saved posts
     const savedPosts = postsData.filter((post) =>
         currentUser.savedPosts?.includes(post.id)
     );
 
-    // 🔥 which data to show
+    //  which data to show
     const displayPosts = activeTab === "posts" ? userPosts : savedPosts;
 
-    // 🔥 initials
+    //  initials
     const initials = currentUser.name
         .split(" ")
         .map((n) => n[0])
@@ -188,10 +188,11 @@ const Profile = () => {
                                 <TouchableOpacity
                                     key={post.id}
                                     onPress={() =>
-                                        router.push(`screen/details/${post.id}`)
+                                        router.push(`/screen/details/${post.id}`)
                                     }
                                     style={{
                                         width: "33.33%",
+                                        height: 182,
                                         aspectRatio: 1,
                                         borderWidth: 1,
                                         borderColor: "#fff"

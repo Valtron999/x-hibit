@@ -36,7 +36,7 @@ export default function PostCard({ post }: Props) {
 
       {/* Info */}
       <View style={{ marginTop: 6 }}>
-        <Text style={{ fontWeight: "600" }}>
+        <Text style={{ fontWeight: "400", color: "#eeeeee" }}>
           {user?.username || "Unknown"}
         </Text>
 
