@@ -59,3 +59,12 @@ export type User = {
   // For algorithm (future)
   interests?: string[]; // ["art", "fashion"]
 };
+
+export type Comment = {
+  id: string;
+  postId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  likes: number;
+};

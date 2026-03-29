@@ -10,17 +10,23 @@ import { useState } from "react";
 import {
   Image,
   ImageBackground,
+  KeyboardAvoidingView,
   Linking,
   Modal, Platform, ScrollView,
   Share,
   Text,
+  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View
 } from "react-native";
 
+import { comments as allComments } from "@/data/comments";
+
 const Details = () => {
   const [visible, setVisible] = useState(false);
+  const [commentVisible, setCommentVisible] = useState(false);
+
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
@@ -37,6 +43,46 @@ const Details = () => {
   const moreByArtist = postsData.filter(
     (p) => p.userId === post?.userId && p.id !== post?.id
   );
+
+  // get comments for current post
+  const baseComments = allComments.filter(
+    (c) => c.postId === post.id
+  );
+
+  // helper get user for comment
+  const getCommentUser = (userId: string) => {
+    return users.find((u) => u.id === userId);
+  };
+
+  const [commentText, setCommentText] = useState("");
+  const [localComments, setLocalComments] = useState(baseComments);
+  const [isLiked, setIsLiked] = useState(false);
+  const [localLikes, setLocalLikes] = useState(post.likes);
+  const [localCommentsCount, setLocalCommentsCount] = useState(post.commentsCount);
+
+  // toggle like function
+  const toggleLike = () => {
+    setIsLiked(!isLiked);
+    setLocalLikes(prev => isLiked ? prev - 1 : prev + 1);
+  };
+
+  // add comment function
+  const addComment = () => {
+    if (!commentText.trim()) return;
+
+    const newComment = {
+      id: Date.now().toString(),
+      postId: post.id,
+      userId: "u1", // replace with logged-in user later
+      content: commentText,
+      createdAt: new Date().toISOString(),
+      likes: 0,
+    };
+
+    setLocalComments([newComment, ...localComments]);
+    setLocalCommentsCount(prev => prev + 1);
+    setCommentText("");
+  };
 
   if (!post) {
     return (
@@ -187,20 +233,23 @@ const downloadImage = async (imageUrl: string) => {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Image
-            source={Icons.heartActive}
-            style={{ width: 24, height: 24, tintColor: "#ED3237", marginRight: 5 }}
-          />
+          <TouchableOpacity onPress={toggleLike}>
+            <Image
+              source={isLiked ? Icons.heartActive : Icons.heartInactive}
+              style={{ width: 24, height: 24, tintColor: isLiked ? "#ED3237" : "#D4D2D3", marginRight: 5 }}
+            />
+          </TouchableOpacity>
           <Text style={{ color: "#D4D2D3", fontSize: 18 }}>
-            {post.likes}
+            {localLikes}
           </Text>
-
-          <Image
-            source={Icons.comment}
-            style={{ width: 24, height: 24, marginLeft: 20, marginRight: 5 }}
-          />
+          <TouchableOpacity onPress={() => setCommentVisible(true)}>
+            <Image
+              source={Icons.comment}
+              style={{ width: 24, height: 24, marginLeft: 20, marginRight: 5 }}
+            />
+          </TouchableOpacity>
           <Text style={{ color: "#D4D2D3", fontSize: 18 }}>
-            {post.commentsCount}
+            {localCommentsCount}
           </Text>
           
           <TouchableOpacity onPress={() => setVisible(true)}>
@@ -342,7 +391,7 @@ const downloadImage = async (imageUrl: string) => {
         </View>
       </View>
 
-      {/* Modal */}
+      {/* Modal for share */}
       <Modal
         visible={visible}
         transparent={true}
@@ -385,20 +434,20 @@ const downloadImage = async (imageUrl: string) => {
             }}> Share link via</Text>
           <View style={{marginTop: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%"}}>
             <TouchableOpacity onPress={shareToFacebook} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginRight: 5}}>
-              <Image source={Icons.facebook} style={{width: 30, height: 30, marginRight: 5}} />
+              <Image source={Icons.facebook} style={{width: 30, height: 30, resizeMode: "contain", alignSelf: "center"}} />
           </TouchableOpacity>
 
             <TouchableOpacity onPress={shareToWhatsApp} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.whatsapp} style={{width: 30, height: 30, marginRight: 5}} />
+              <Image source={Icons.whatsapp} style={{width: 30, height: 30, resizeMode: "contain", alignSelf: "center"}} />
             </TouchableOpacity>
             <TouchableOpacity onPress={shareToX} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.x} style={{width: 30, height: 30, marginRight: 5}} />
+              <Image source={Icons.x} style={{width: 30, height: 30, resizeMode: "contain", alignSelf: "center"}} />
             </TouchableOpacity>
             <TouchableOpacity onPress={openInstagram} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.instagram} style={{width: 30, height: 30, marginRight: 5}} />
+              <Image source={Icons.instagram} style={{width: 30, height: 30, resizeMode: "contain", alignSelf: "center"}} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => downloadImage(post.image)} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.download} style={{width: 30, height: 30, marginRight: 5}} />
+              <Image source={Icons.download} style={{width: 30, height: 30, resizeMode: "contain", alignSelf: "center"}} />
             </TouchableOpacity>
           </View>
             <Text style={{
@@ -416,6 +465,137 @@ const downloadImage = async (imageUrl: string) => {
         </View>
       </Modal>
 
+      {/* Modal for comments */}
+      <Modal
+        visible={commentVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setVisible(false)}
+      >
+                  <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ flex: 1 }}
+          >
+          <View style={{
+              flex: 1,
+              backgroundColor: "rgba(24, 1, 1, 0.5)",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              
+          }}>
+          <View style={{
+                width: "100%",
+                height: "85%",
+                backgroundColor: "#000000",
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                borderTopStartRadius: 31,
+                borderTopEndRadius: 31,
+          }}>
+
+          <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%",
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderBottomWidth: 2,
+            borderBottomColor: "#A6A1A5",
+          }}>
+            <TouchableOpacity onPress={() => setCommentVisible(false)}>
+              <Image source={Icons.close} style={{width: 15, height: 15}} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={copyLink}>
+              <Image source={Icons.share} style={{width: 15, height: 15}} />
+            </TouchableOpacity>
+            </View>
+                  <ScrollView
+                          showsVerticalScrollIndicator={false}
+                          style={{ marginTop: 20 }}
+                          contentContainerStyle={{ paddingBottom: 120 }}
+                        >
+                  {localComments.map((comment) => {
+                    const commentUser = getCommentUser(comment.userId);
+
+                    return (
+                      <View
+                        key={comment.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "flex-start",
+                          marginBottom: 15,
+                        }}
+                      >
+                        {/* avatar */}
+                        <Image
+                          source={{ uri: commentUser?.profilePicture }}
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 15,
+                            marginRight: 10,
+                          }}
+                        />
+
+                        {/* comment box */}
+                        <View
+                          style={{
+                            backgroundColor: "#1A1919",
+                            padding: 10,
+                            flex: 1,
+                          }}
+                        >
+                          <Text style={{ color: "#999", fontSize: 12, marginBottom: 3 }}>
+                            {commentUser?.name || "Unknown User"}
+                          </Text>
+
+                          <Text style={{ color: "#fefefe" }}>{comment.content}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+            </ScrollView>
+            {/* comment input */}
+                    <View
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: "#000",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 10,
+                        paddingHorizontal: 15,
+                        borderTopWidth: 1,
+                        borderTopColor: "#333",
+                      }}
+                    >
+                    <TextInput
+                      placeholder="Comment this artwork"
+                      placeholderTextColor="#999"
+                      value={commentText}
+                      onChangeText={setCommentText}
+                      style={{
+                        flex: 1,
+                        backgroundColor: "#1A1A1A",
+                        borderRadius: 10,
+                        paddingHorizontal: 15,
+                        color: "#fff",
+                        height: 50,
+                      }}
+                    />
+
+                    <TouchableOpacity
+                      onPress={addComment}
+                      style={{ marginLeft: 10, width: 50, height: 50, backgroundColor: "#ED3237", borderRadius: 10, justifyContent: "center", alignItems: "center", paddingHorizontal: 15}}
+                    >
+                      <Image source={Icons.add} style={{width: 20, height: 20}} />
+                    </TouchableOpacity>
+                  </View>
+
+          </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 };

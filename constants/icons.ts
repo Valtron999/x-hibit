@@ -1,3 +1,4 @@
+import add from "@/assets/icons/add.png"
 import back from "@/assets/icons/back.png"
 import close from "@/assets/icons/close.png"
 import copy from "@/assets/icons/copy.png"
@@ -32,5 +33,6 @@ export const Icons = {
     close,
     download,
     copy,
+    add
 }
 
