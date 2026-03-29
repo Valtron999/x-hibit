@@ -3,13 +3,16 @@ import { Icons } from "@/constants/icons";
 import { postsData } from "@/data/posts";
 import { users } from "@/data/users";
 import MasonryList from "@react-native-seoul/masonry-list";
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Image,
   ImageBackground,
-  Modal,
-  ScrollView,
+  Linking,
+  Modal, Platform, ScrollView,
+  Share,
   Text,
   TouchableOpacity,
   useWindowDimensions,
@@ -43,6 +46,97 @@ const Details = () => {
     );
   }
 
+  // url for sharing
+  const shareUrl = `https://x-hibit.vercel.app/screen/details/${id}`;
+  const message = `Check out this artwork on X-Hibit 👇\n${shareUrl}`;
+
+
+// share functions
+const shareToFacebook = () => {
+  Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`);
+};
+
+const shareToX = () => {
+  Linking.openURL(
+    `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`
+  );
+};
+
+const shareToWhatsApp = () => {
+  Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+};
+
+const openInstagram = () => {
+  Linking.openURL("https://www.instagram.com/");
+};
+
+// LINK (WEB + MOBILE)
+const copyLink = async () => {
+  try {
+    if (Platform.OS === "web") {
+      await navigator.clipboard.writeText(shareUrl);
+    } else {
+      const Clipboard = await import("expo-clipboard");
+      await Clipboard.setStringAsync(shareUrl);
+    }
+    alert("Link copied!");
+  } catch (err) {
+    alert("Failed to copy link");
+  }
+};
+
+// system share
+const systemShare = async () => {
+  try {
+    await Share.share({ message });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// download image
+const downloadImage = async (imageUrl: string) => {
+  try {
+    // WEB DOWNLOAD
+    if (Platform.OS === "web") {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "x-hibit-image.jpg";
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      alert("Download started!");
+      return;
+    }
+
+    // MOBILE DOWNLOAD
+    const { status } = await MediaLibrary.requestPermissionsAsync();
+
+    if (status !== "granted") {
+      alert("Permission needed to save image");
+      return;
+    }
+
+    const fileUri = FileSystem.documentDirectory + "x-hibit-image.jpg";
+
+    const downloaded = await FileSystem.downloadAsync(imageUrl, fileUri);
+
+    await MediaLibrary.saveToLibraryAsync(downloaded.uri);
+
+    alert("Image saved to gallery!");
+  } catch (error) {
+    console.log(error);
+    alert("Download failed");
+  }
+};
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -278,7 +372,7 @@ const Details = () => {
             }}> Share</Text>
 
             <TouchableOpacity onPress={() => setVisible(false)} style={{backgroundColor: "#1A1919", padding: 10, borderRadius: 6, width: 35, height: 35, justifyContent: "center", alignItems: "center", }}>
-              <Text style={{color: "#c9c9c9"}}>X</Text>
+                <Image source={Icons.close} style={{width: 15, height: 15, tintColor: "#fefefe"}} />
             </TouchableOpacity>
           </View>
           
@@ -290,21 +384,21 @@ const Details = () => {
 
             }}> Share link via</Text>
           <View style={{marginTop: 5, flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%"}}>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginRight: 5}}>
-              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#3b5998", marginRight: 5}} />
-              
+            <TouchableOpacity onPress={shareToFacebook} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginRight: 5}}>
+              <Image source={Icons.facebook} style={{width: 30, height: 30, marginRight: 5}} />
+          </TouchableOpacity>
+
+            <TouchableOpacity onPress={shareToWhatsApp} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.whatsapp} style={{width: 30, height: 30, marginRight: 5}} />
             </TouchableOpacity>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            <TouchableOpacity onPress={shareToX} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.x} style={{width: 30, height: 30, marginRight: 5}} />
             </TouchableOpacity>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            <TouchableOpacity onPress={openInstagram} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.instagram} style={{width: 30, height: 30, marginRight: 5}} />
             </TouchableOpacity>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
-            </TouchableOpacity>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
-              <Image source={Icons.setting} style={{width: 30, height: 30, tintColor: "#00acee", marginRight: 5}} />
+            <TouchableOpacity onPress={() => downloadImage(post.image)} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 10, borderRadius: 12, flex: 1, marginLeft: 5}}>
+              <Image source={Icons.download} style={{width: 30, height: 30, marginRight: 5}} />
             </TouchableOpacity>
           </View>
             <Text style={{
@@ -314,8 +408,8 @@ const Details = () => {
               marginTop: 20
 
             }}> Page Direct</Text>
-            <TouchableOpacity style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 20, borderRadius: 12, flex: 1, marginLeft: 5, marginTop:10, marginHorizontal: 10, marginBottom: 10, }}>
-              <Image source={Icons.setting} style={{width: 20, height: 20, tintColor: "#00acee", marginRight: 5, }} />
+            <TouchableOpacity onPress={copyLink} style={{flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#1A1919", padding: 20, borderRadius: 12, flex: 1, marginLeft: 5, marginTop:10, marginHorizontal: 10, marginBottom: 10, }}>
+              <Image source={Icons.copy} style={{width: 30, height: 20, tintColor: "#00acee", marginRight: 5, }} />
               <Text style={{color: "#fefefe",fontWeight: "bold", marginLeft: 5, }}>Copy Link</Text>
             </TouchableOpacity>
           </View>
