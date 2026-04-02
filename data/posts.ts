@@ -4,6 +4,7 @@ export const postsData: Post[] = [
   {
     id: "1",
     userId: "u1",
+    title: "Fashion Forward",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115333/art1_yxzvg6.jpg",
     width: 1200,
     height: 1500,
@@ -17,9 +18,11 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  }, {
+  },
+  {
     id: "2",
     userId: "u2",
+    title: "World Graphic Designer Day",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115333/art3_f6yvp4.jpg",
     width: 1080,
     height: 1080,
@@ -33,9 +36,11 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  }, {
+  },
+  {
     id: "3",
     userId: "u3",
+    title: "Moonlit Reverie",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115332/art5_zzjdaw.jpg",
     width: 736,
     height: 1313,
@@ -49,15 +54,17 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  }, {
+  },
+  {
     id: "4",
     userId: "u3",
+    title: "Sunset Carry",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115332/art6_p7xpas.jpg",
     width: 857,
     height: 1200,
     aspectRatio: 1200 / 857,
     type: "image",
-    description: "Painting of a woman in sunset, carrying calabash",
+    description: "Painting of a woman in sunset, carrying calabash.",
     category: "art",
     tags: ["painting", "art", "amazing"],
     likes: 432,
@@ -65,9 +72,11 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  }, {
+  },
+  {
     id: "5",
     userId: "u2",
+    title: "Liberal Smoke",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115332/art4_ttv2nu.jpg",
     width: 676,
     height: 1201,
@@ -81,15 +90,17 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  } , {
+  },
+  {
     id: "6",
     userId: "u1",
+    title: "Club Elegance",
     image: "https://res.cloudinary.com/da4eqkewi/image/upload/v1774115331/art2_bmtvfb.jpg",
     width: 736,
     height: 1104,
     aspectRatio: 1104 / 736,
     type: "image",
-    description: "A model image",
+    description: "A model image.",
     category: "art",
     tags: ["model", "modelling", "club", "beautiful"],
     likes: 432,
@@ -97,6 +108,5 @@ export const postsData: Post[] = [
     views: 2100,
     isTrending: true,
     createdAt: "2026-03-01T10:00:00Z",
-  }
-
+  },
 ];

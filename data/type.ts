@@ -9,6 +9,7 @@ export interface Post {
   type: "image";
 
   description: string;
+  title: string;
   category: string;
   tags: string[];
 
