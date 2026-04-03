@@ -7,13 +7,31 @@ type Props = {
   onSelect: (id: string) => void;
 };
 
-export default function CategoryTabs({ data, activeCategory, onSelect }: Props) {
+export default function CategoryTabs({
+  data,
+  activeCategory,
+  onSelect,
+}: Props) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
     >
+      
+      <TouchableOpacity
+        onPress={() => onSelect("all")}
+        style={[
+          styles.button,
+          {
+            backgroundColor: activeCategory === "all" ? "#ED3237" : "#848688",
+          },
+        ]}
+      >
+        <Text style={styles.text}>All</Text>
+      </TouchableOpacity>
+
+      {/* REAL CATEGORIES */}
       {data.map((item) => {
         const isActive = item.id === activeCategory;
 
