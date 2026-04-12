@@ -12,6 +12,11 @@
       "supportsTablet": true
     },
     "android": {
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#030303",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +42,14 @@
           "dark": {
             "backgroundColor": "#030303"
           }
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow access to your photos",
+          "savePhotosPermission": "Allow saving photos",
+          "isAccessMediaLocationEnabled": true
         }
       ],
       "expo-font",

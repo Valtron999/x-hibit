@@ -7,12 +7,11 @@ import MasonryList from "@react-native-seoul/masonry-list";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Image,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-    useWindowDimensions,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,12 +19,12 @@ const Home = () => {
   const { width } = useWindowDimensions();
   const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
 
-  // "all" = default filter state (NOT in category.ts)
+  
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const Route = useRouter();
 
-  // ✅ FAST + CLEAN FILTER (memoized for performance)
+
   const filteredPosts = useMemo(() => {
     if (activeCategory === "all") return postsData;
 
@@ -56,31 +55,21 @@ const Home = () => {
         >
           <Image
             source={Images.logo}
-            style={{ width: 53.08, height: 15.07, alignSelf: "center" }}
+            style={{ width: 53.08*2, height: 15.07*2, alignSelf: "center" }}
           />
 
           <TouchableOpacity
             onPress={() => Route.push("/screen/users/profile")}
             style={{
-              width: 30,
-              height: 30,
+              width: 35,
+              height: 35,
               backgroundColor: "#ffffff",
               borderRadius: 30,
               alignSelf: "center",
               marginTop: 10,
             }}
           >
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "bold",
-                color: "#BDBFC1",
-                alignSelf: "center",
-                marginTop: 5,
-              }}
-            >
-              JD
-            </Text>
+
           </TouchableOpacity>
         </View>
 
@@ -96,7 +85,7 @@ const Home = () => {
         {/* MASONRY FEED */}
         <View>
           <MasonryList
-            data={filteredPosts}   // 🔥 IMPORTANT CHANGE
+            data={filteredPosts}  
             keyExtractor={(item) => item.id}
             numColumns={numColumns}
             showsVerticalScrollIndicator={false}
