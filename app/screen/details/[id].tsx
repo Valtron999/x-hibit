@@ -514,21 +514,6 @@ const Details = () => {
         animationType="slide"
         onRequestClose={() => setCommentVisible(false)}
       >
-        {/*
-         * THE FIX EXPLAINED:
-         *
-         * 1. Outer View: flex:1 + dark overlay. Tapping the dark area
-         *    (above the sheet) closes the modal.
-         *
-         * 2. KeyboardAvoidingView: position:absolute pinned to bottom:0
-         *    with a fixed height of 90% of the screen. It never floats
-         *    because it is absolutely pinned — it just shrinks its inner
-         *    content upward when the keyboard appears.
-         *
-         * 3. Inner View: flex:1 so it fills the KAV entirely.
-         *    Layout = header (fixed) + ScrollView (flex:1 = grows) + input bar (fixed).
-         *    This is the correct bottom-sheet pattern.
-         */}
         <View
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
         >

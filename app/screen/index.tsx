@@ -59,7 +59,7 @@ const Home = () => {
           />
 
           <TouchableOpacity
-            onPress={() => Route.push("/screen/users/profile")}
+            onPress={() => Route.push("/screen/users/u1")}
             style={{
               width: 35,
               height: 35,
