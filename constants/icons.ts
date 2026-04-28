@@ -15,6 +15,7 @@ import setting from "@/assets/icons/settings.png"
 import x from "@/assets/icons/twitter.png"
 import show from "@/assets/icons/view.png"
 import whatsapp from "@/assets/icons/whatsapp.png"
+import search from "@/assets/icons/search.png"
 
 export const Icons = {
     back,
@@ -33,6 +34,7 @@ export const Icons = {
     close,
     download,
     copy,
-    add
+    add,
+    search
 }
 
