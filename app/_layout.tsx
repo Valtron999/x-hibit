@@ -55,13 +55,13 @@ export default function RootLayout() {
           headerShown: false
         }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name="screen/details/details"
         options={{
           title: "Details Screen",
           headerShown: false
         }}
-      />
+      /> */}
       <Stack.Screen
         name="screen/users/[id]"
         options={{
