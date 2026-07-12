@@ -1,18 +1,19 @@
 import CategoryTabs from "@/components/category";
 import PostCard from "@/components/PostCard";
-import { Images } from "@/constants/images";
 import { Icons } from "@/constants/icons";
+import { Images } from "@/constants/images";
 import { categories } from "@/data/category";
 import { postsData } from "@/data/posts";
+import { useAuth } from "@/hooks/useAuth";
 import MasonryList from "@react-native-seoul/masonry-list";
 import { useRouter } from "expo-router";
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Animated,
-  TextInput,
   FlatList,
-  Pressable,
   Image,
+  Pressable,
+  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -22,6 +23,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const Home = () => {
   const Route = useRouter();
   const { width } = useWindowDimensions();
+  const { profile } = useAuth();
 
   const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
 
@@ -104,6 +106,15 @@ const Home = () => {
     outputRange: [900, 0],
   });
 
+  // Tapping the avatar goes to your own profile if logged in, otherwise to login
+  const handleAvatarPress = () => {
+    if (profile) {
+      Route.push(`/screen/users/${profile.id}`);
+    } else {
+      Route.push("../authscreen/login"); // adjust to your actual login route
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
       {/* ✅ MAIN FEED (NO ScrollView) */}
@@ -137,14 +148,22 @@ const Home = () => {
               />
 
               <TouchableOpacity
-                onPress={() => Route.push("/screen/users/u1")}
+                onPress={handleAvatarPress}
                 style={{
                   width: 35,
                   height: 35,
                   backgroundColor: "#ffffff",
                   borderRadius: 30,
+                  overflow: "hidden",
                 }}
-              />
+              >
+                {profile?.profilePicture ? (
+                  <Image
+                    source={{ uri: profile.profilePicture }}
+                    style={{ width: "100%", height: "100%" }}
+                  />
+                ) : null}
+              </TouchableOpacity>
             </View>
 
             {/* CATEGORY */}

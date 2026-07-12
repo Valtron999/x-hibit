@@ -1,18 +1,20 @@
 import { Icons } from "@/constants/icons";
+import { useAuth } from "@/hooks/useAuth";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Dimensions,
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -38,12 +40,16 @@ const getStrengthColor = (score: number) => {
 
 const SignUpScreen = () => {
   const router = useRouter();
+  const { signUp } = useAuth();
+
   const [form, setForm] = useState({
+    name: "",
     email: "",
     password: "",
     username: "",
     dob: "",
     gender: "" as "Male" | "Female" | "",
+    category: "" as "artist" | "designer" | "photographer" | "model" | "",
     termsAgreed: false,
   });
 
@@ -52,6 +58,10 @@ const SignUpScreen = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dobDate, setDobDate] = useState<Date | null>(null);
   const passwordStrengthAnim = useRef(new Animated.Value(0)).current;
+
+  // Sign-up request state
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     const strength = computePasswordStrength(form.password);
@@ -63,20 +73,52 @@ const SignUpScreen = () => {
   }, [form.password]);
 
   const isFormValid =
+    form.name.trim().length >= 2 &&
     validateEmail(form.email) &&
     computePasswordStrength(form.password) >= 2 &&
     form.username.length >= 3 &&
     form.dob &&
     form.gender &&
+    form.category &&
     form.termsAgreed;
 
-  const handleSignUp = () => {
-    if (!isFormValid) return;
-    console.log("Signing up with", form);
+  const handleSignUp = async () => {
+    if (!isFormValid || submitting) return;
+
+    setSubmitting(true);
+    setSubmitError("");
+
+    const { error } = await signUp({
+      email: form.email,
+      password: form.password,
+      name: form.name.trim(),
+      username: form.username,
+      category: form.category as "artist" | "designer" | "photographer" | "model",
+      gender: form.gender.toLowerCase() as "male" | "female",
+      dateOfBirth: form.dob,
+    });
+
+    setSubmitting(false);
+
+    if (error) {
+      // Common cases: "User already registered", weak password rejected server-side, etc.
+      setSubmitError(error.message);
+      return;
+    }
+
+    // If you left "Confirm email" ON in Supabase Auth settings, there's no
+    // session yet at this point — route to a "check your email" screen instead.
+    router.replace("/screen");
   };
 
   const handleGenderSelect = (gender: "Male" | "Female") => {
     setForm({ ...form, gender });
+  };
+
+  const handleCategorySelect = (
+    category: "artist" | "designer" | "photographer" | "model"
+  ) => {
+    setForm({ ...form, category });
   };
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
@@ -103,8 +145,18 @@ const SignUpScreen = () => {
           </View>
 
           <View style={styles.content}>
+            {/* Name */}
+            <Text style={styles.label}>What's your name?</Text>
+            <TextInput
+              placeholder="Enter your full name"
+              placeholderTextColor="#9C9996"
+              style={styles.input}
+              value={form.name}
+              onChangeText={(val) => setForm({ ...form, name: val })}
+            />
+
             {/* Email */}
-            <Text style={styles.label}>What's your email address?</Text>
+            <Text style={[styles.label, { marginTop: 20 }]}>What's your email address?</Text>
             <TextInput
               placeholder="Enter your email"
               placeholderTextColor="#9C9996"
@@ -237,6 +289,31 @@ const SignUpScreen = () => {
               })}
             </View>
 
+            {/* Category */}
+            <Text style={[styles.label, { marginTop: 20 }]}>What best describes you?</Text>
+            <View style={styles.categoryContainer}>
+              {(["artist", "designer", "photographer", "model"] as const).map((c) => {
+                const selected = form.category === c;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => handleCategorySelect(c)}
+                    style={[styles.categoryOption, selected && styles.categorySelected]}
+                  >
+                    <Text
+                      style={{
+                        color: selected ? "#030303" : "#D4D2D3",
+                        fontWeight: selected ? "bold" : "400",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             {/* Terms */}
             <View style={styles.termsContainer}>
               <TouchableOpacity
@@ -248,13 +325,19 @@ const SignUpScreen = () => {
               </Text>
             </View>
 
+            {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
+
             {/* Sign Up Button */}
             <TouchableOpacity
-              disabled={!isFormValid}
+              disabled={!isFormValid || submitting}
               onPress={handleSignUp}
-              style={[styles.signUpButton, { opacity: isFormValid ? 1 : 0.5 }]}
+              style={[styles.signUpButton, { opacity: isFormValid && !submitting ? 1 : 0.5 }]}
             >
-              <Text style={styles.signUpButtonText}>Sign up</Text>
+              {submitting ? (
+                <ActivityIndicator color="#FEFEFE" />
+              ) : (
+                <Text style={styles.signUpButtonText}>Sign up</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -284,6 +367,9 @@ const styles = StyleSheet.create({
   genderContainer: { flexDirection: "column", marginTop: 10 },
   genderOption: { marginVertical: 5, height: 60, marginHorizontal: 5, borderRadius: 17, borderWidth: 2, borderColor: "#D4D2D3", justifyContent: "center", alignItems: "center" },
   genderSelected: { borderColor: "#66BC50", backgroundColor: "#66BC50" },
+  categoryContainer: { flexDirection: "row", flexWrap: "wrap", marginTop: 10, marginHorizontal: -5 },
+  categoryOption: { width: "48%", margin: "1%", height: 60, borderRadius: 17, borderWidth: 2, borderColor: "#D4D2D3", justifyContent: "center", alignItems: "center" },
+  categorySelected: { borderColor: "#66BC50", backgroundColor: "#66BC50" },
   termsContainer: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   checkbox: { width: 16, height: 16, borderRadius: 4, borderWidth: 1, borderColor: "#919191", marginRight: 5 },
   checkboxChecked: { backgroundColor: "#66BC50", borderColor: "#66BC50" },
