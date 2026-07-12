@@ -52,6 +52,12 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to upload artwork."
+        }
+      ],
       "expo-font",
       "@react-native-community/datetimepicker"
     ],
