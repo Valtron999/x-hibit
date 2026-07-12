@@ -216,7 +216,7 @@ const Home = () => {
           }}
         >
           {/* HEADER */}
-          <View style={{ padding: 20 }}>
+          <View style={{ padding: 20, marginTop: 25 }}>
             <Pressable onPress={closeSearch}>
               <View style={{ alignSelf: "flex-end", marginBottom: 10 }}>
                 <Image

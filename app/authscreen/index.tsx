@@ -136,10 +136,10 @@ const FloatingCollage = () => {
                  <TouchableOpacity onPress={()=> Route.push("/authscreen/login")} style={{ height: 54.0, minWidth: 334.0, backgroundColor: "#9C9996", borderRadius: 11, justifyContent: "center", alignItems: "center", marginTop: 10 }}>
                     <Text style={{ color: "#FEFEFE", fontWeight: "bold" }}>Log in</Text>
                 </TouchableOpacity>
-                 <TouchableOpacity onPress={()=> Route.push("/screen")} style={{ height: 54.0, minWidth: 334.0, backgroundColor: "#301902", borderRadius: 11, justifyContent: "center", alignItems: "center", marginTop: 10, marginBottom: 20  }}>
+                 {/* <TouchableOpacity onPress={()=> Route.push("/screen")} style={{ height: 54.0, minWidth: 334.0, backgroundColor: "#301902", borderRadius: 11, justifyContent: "center", alignItems: "center", marginTop: 10, marginBottom: 20  }}>
                     <Text style={{ color: "#FEFEFE", fontWeight: "bold"}}>Temp</Text>
                 </TouchableOpacity>
-                
+                 */}
         </View>
     </ScrollView>
   );
