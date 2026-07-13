@@ -17,14 +17,17 @@ export function usePost(postId?: string) {
     setLoading(true);
     setError(null);
 
+    console.log("usePost: fetching postId =", postId);
     const { data, error: fetchError } = await supabase
       .from("posts")
-      .select("*, profiles(username, profile_picture)")
+      .select("*, profiles!posts_user_id_fkey(username, profile_picture)")
       .eq("id", postId)
       .single();
+    console.log("usePost result — postId:", postId, "data:", data, "error:", fetchError)
 
     if (fetchError || !data) {
-      setError("Post not found");
+      console.error("usePost fetch error:", fetchError);
+      setError(fetchError?.message ?? "Post not found");
       setPost(null);
     } else {
       setPost(mapRowToPostWithAuthor(data as PostRow));

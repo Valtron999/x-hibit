@@ -3,16 +3,18 @@ import PostCard from "@/components/PostCard";
 import { Icons } from "@/constants/icons";
 import { Images } from "@/constants/images";
 import { categories } from "@/data/category";
-import { postsData } from "@/data/posts";
+import { useAllPosts } from "@/hooks/useAllPosts";
 import { useAuth } from "@/hooks/useAuth";
 import MasonryList from "@react-native-seoul/masonry-list";
 import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
   Image,
   Pressable,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -27,6 +29,13 @@ const Home = () => {
 
   const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
 
+  // card sizing: must match PostCard's own margin (6 on each side = 12/card)
+  const CARD_MARGIN = 6;
+  const HORIZONTAL_PADDING = 0; // bump this if MasonryList has outer padding
+  const columnWidth =
+    (width - HORIZONTAL_PADDING * 2 - CARD_MARGIN * 2 * numColumns) /
+    numColumns;
+
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -34,38 +43,41 @@ const Home = () => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const modalAnim = useRef(new Animated.Value(0)).current;
 
+  // ✅ Real data from Supabase
+  const { posts, loading, error, refetch } = useAllPosts();
+
   // ✅ Combined filtering (category + search)
   const finalPosts = useMemo(() => {
-  let result = postsData;
+    let result = posts;
 
-  // category filter
-  if (activeCategory !== "all") {
-    result = result.filter((post) => post.category === activeCategory);
-  }
+    // category filter
+    if (activeCategory !== "all") {
+      result = result.filter((post) => post.category === activeCategory);
+    }
 
-  // search filter
-  if (query) {
-    const q = query.toLowerCase();
+    // search filter
+    if (query) {
+      const q = query.toLowerCase();
 
-    result = result.filter((post) => {
-      const inTitle = post.title?.toLowerCase().includes(q);
+      result = result.filter((post) => {
+        const inTitle = post.title?.toLowerCase().includes(q);
 
-      const inDescription = post.description
-        ?.toLowerCase()
-        .includes(q);
+        const inDescription = post.description
+          ?.toLowerCase()
+          .includes(q);
 
-      const inTags = post.tags?.some((tag) =>
-        tag.toLowerCase().includes(q)
-      );
+        const inTags = post.tags?.some((tag) =>
+          tag.toLowerCase().includes(q)
+        );
 
-      const inCategory = post.category?.toLowerCase().includes(q);
+        const inCategory = post.category?.toLowerCase().includes(q);
 
-      return inTitle || inDescription || inTags || inCategory;
-    });
-  }
+        return inTitle || inDescription || inTags || inCategory;
+      });
+    }
 
-  return result;
-}, [activeCategory, query]);
+    return result;
+  }, [posts, activeCategory, query]);
 
   // ✅ Animations
   const openSearch = () => {
@@ -115,6 +127,87 @@ const Home = () => {
     }
   };
 
+  const Header = () => (
+    <>
+      {/* HEADER */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 20,
+          paddingBottom: 10,
+          marginTop: 10,
+          marginBottom: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: "#A6A1A5",
+        }}
+      >
+        <Image
+          source={Images.logo}
+          style={{
+            width: 53.08 * 2,
+            height: 15.07 * 2,
+          }}
+        />
+
+        <TouchableOpacity
+          onPress={handleAvatarPress}
+          style={{
+            width: 35,
+            height: 35,
+            backgroundColor: "#ffffff",
+            borderRadius: 30,
+            overflow: "hidden",
+          }}
+        >
+          {profile?.profilePicture ? (
+            <Image
+              source={{ uri: profile.profilePicture }}
+              style={{ width: "100%", height: "100%" }}
+            />
+          ) : null}
+        </TouchableOpacity>
+      </View>
+
+      {/* CATEGORY */}
+      <CategoryTabs
+        data={categories}
+        activeCategory={activeCategory}
+        onSelect={(id) => setActiveCategory(id)}
+      />
+    </>
+  );
+
+  // ── Loading state ───────────────────────────────────────────────────────
+  if (loading && posts.length === 0) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
+        <Header />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color="#fff" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Error state ─────────────────────────────────────────────────────────
+  if (error && posts.length === 0) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
+        <Header />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30 }}>
+          <Text style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}>
+            {error}
+          </Text>
+          <TouchableOpacity onPress={refetch}>
+            <Text style={{ color: "#D4D2D3" }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
       {/* ✅ MAIN FEED (NO ScrollView) */}
@@ -123,58 +216,15 @@ const Home = () => {
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <>
-            {/* HEADER */}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingHorizontal: 20,
-                paddingBottom: 10,
-                marginTop: 10,
-                marginBottom: 10,
-                borderBottomWidth: 1,
-                borderBottomColor: "#A6A1A5",
-              }}
-            >
-              <Image
-                source={Images.logo}
-                style={{
-                  width: 53.08 * 2,
-                  height: 15.07 * 2,
-                }}
-              />
-
-              <TouchableOpacity
-                onPress={handleAvatarPress}
-                style={{
-                  width: 35,
-                  height: 35,
-                  backgroundColor: "#ffffff",
-                  borderRadius: 30,
-                  overflow: "hidden",
-                }}
-              >
-                {profile?.profilePicture ? (
-                  <Image
-                    source={{ uri: profile.profilePicture }}
-                    style={{ width: "100%", height: "100%" }}
-                  />
-                ) : null}
-              </TouchableOpacity>
-            </View>
-
-            {/* CATEGORY */}
-            <CategoryTabs
-              data={categories}
-              activeCategory={activeCategory}
-              onSelect={(id) => setActiveCategory(id)}
-            />
-          </>
+        ListHeaderComponent={<Header />}
+        ListEmptyComponent={
+          <View style={{ padding: 40, alignItems: "center" }}>
+            <Text style={{ color: "#686666" }}>No posts found.</Text>
+          </View>
         }
-        renderItem={({ item }) => <PostCard post={item as any} />}
+        renderItem={({ item }) => (
+          <PostCard post={item as any} cardWidth={columnWidth} />
+        )}
       />
 
       {/* FLOATING SEARCH BUTTON */}
@@ -254,7 +304,7 @@ const Home = () => {
                   borderBottomColor: "#222",
                 }}
               >
-                <PostCard post={item as any} />
+                <PostCard post={item as any} cardWidth={width - 40} />
               </TouchableOpacity>
             )}
           />
@@ -266,22 +316,23 @@ const Home = () => {
 
 export default Home;
 
-
 // import CategoryTabs from "@/components/category";
 // import PostCard from "@/components/PostCard";
 // import { Icons } from "@/constants/icons";
 // import { Images } from "@/constants/images";
 // import { categories } from "@/data/category";
-// import { postsData } from "@/data/posts";
+// import { useAllPosts } from "@/hooks/useAllPosts";
 // import { useAuth } from "@/hooks/useAuth";
 // import MasonryList from "@react-native-seoul/masonry-list";
 // import { useRouter } from "expo-router";
 // import { useMemo, useRef, useState } from "react";
 // import {
+//   ActivityIndicator,
 //   Animated,
 //   FlatList,
 //   Image,
 //   Pressable,
+//   Text,
 //   TextInput,
 //   TouchableOpacity,
 //   View,
@@ -303,38 +354,41 @@ export default Home;
 //   const scaleAnim = useRef(new Animated.Value(1)).current;
 //   const modalAnim = useRef(new Animated.Value(0)).current;
 
+//   // ✅ Real data from Supabase
+//   const { posts, loading, error, refetch } = useAllPosts();
+
 //   // ✅ Combined filtering (category + search)
 //   const finalPosts = useMemo(() => {
-//   let result = postsData;
+//     let result = posts;
 
-//   // category filter
-//   if (activeCategory !== "all") {
-//     result = result.filter((post) => post.category === activeCategory);
-//   }
+//     // category filter
+//     if (activeCategory !== "all") {
+//       result = result.filter((post) => post.category === activeCategory);
+//     }
 
-//   // search filter
-//   if (query) {
-//     const q = query.toLowerCase();
+//     // search filter
+//     if (query) {
+//       const q = query.toLowerCase();
 
-//     result = result.filter((post) => {
-//       const inTitle = post.title?.toLowerCase().includes(q);
+//       result = result.filter((post) => {
+//         const inTitle = post.title?.toLowerCase().includes(q);
 
-//       const inDescription = post.description
-//         ?.toLowerCase()
-//         .includes(q);
+//         const inDescription = post.description
+//           ?.toLowerCase()
+//           .includes(q);
 
-//       const inTags = post.tags?.some((tag) =>
-//         tag.toLowerCase().includes(q)
-//       );
+//         const inTags = post.tags?.some((tag) =>
+//           tag.toLowerCase().includes(q)
+//         );
 
-//       const inCategory = post.category?.toLowerCase().includes(q);
+//         const inCategory = post.category?.toLowerCase().includes(q);
 
-//       return inTitle || inDescription || inTags || inCategory;
-//     });
-//   }
+//         return inTitle || inDescription || inTags || inCategory;
+//       });
+//     }
 
-//   return result;
-// }, [activeCategory, query]);
+//     return result;
+//   }, [posts, activeCategory, query]);
 
 //   // ✅ Animations
 //   const openSearch = () => {
@@ -380,9 +434,90 @@ export default Home;
 //     if (profile) {
 //       Route.push(`/screen/users/${profile.id}`);
 //     } else {
-//       Route.push("../authscreen/login"); // adjust to your actual login route
+//       Route.push("/authscreen/login");
 //     }
 //   };
+
+//   const Header = () => (
+//     <>
+//       {/* HEADER */}
+//       <View
+//         style={{
+//           flexDirection: "row",
+//           justifyContent: "space-between",
+//           alignItems: "center",
+//           paddingHorizontal: 20,
+//           paddingBottom: 10,
+//           marginTop: 10,
+//           marginBottom: 10,
+//           borderBottomWidth: 1,
+//           borderBottomColor: "#A6A1A5",
+//         }}
+//       >
+//         <Image
+//           source={Images.logo}
+//           style={{
+//             width: 53.08 * 2,
+//             height: 15.07 * 2,
+//           }}
+//         />
+
+//         <TouchableOpacity
+//           onPress={handleAvatarPress}
+//           style={{
+//             width: 35,
+//             height: 35,
+//             backgroundColor: "#ffffff",
+//             borderRadius: 30,
+//             overflow: "hidden",
+//           }}
+//         >
+//           {profile?.profilePicture ? (
+//             <Image
+//               source={{ uri: profile.profilePicture }}
+//               style={{ width: "100%", height: "100%" }}
+//             />
+//           ) : null}
+//         </TouchableOpacity>
+//       </View>
+
+//       {/* CATEGORY */}
+//       <CategoryTabs
+//         data={categories}
+//         activeCategory={activeCategory}
+//         onSelect={(id) => setActiveCategory(id)}
+//       />
+//     </>
+//   );
+
+//   // ── Loading state ───────────────────────────────────────────────────────
+//   if (loading && posts.length === 0) {
+//     return (
+//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
+//         <Header />
+//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+//           <ActivityIndicator color="#fff" />
+//         </View>
+//       </SafeAreaView>
+//     );
+//   }
+
+//   // ── Error state ─────────────────────────────────────────────────────────
+//   if (error && posts.length === 0) {
+//     return (
+//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
+//         <Header />
+//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30 }}>
+//           <Text style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}>
+//             {error}
+//           </Text>
+//           <TouchableOpacity onPress={refetch}>
+//             <Text style={{ color: "#D4D2D3" }}>Try again</Text>
+//           </TouchableOpacity>
+//         </View>
+//       </SafeAreaView>
+//     );
+//   }
 
 //   return (
 //     <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
@@ -392,56 +527,11 @@ export default Home;
 //         keyExtractor={(item) => item.id}
 //         numColumns={numColumns}
 //         showsVerticalScrollIndicator={false}
-//         ListHeaderComponent={
-//           <>
-//             {/* HEADER */}
-//             <View
-//               style={{
-//                 flexDirection: "row",
-//                 justifyContent: "space-between",
-//                 alignItems: "center",
-//                 paddingHorizontal: 20,
-//                 paddingBottom: 10,
-//                 marginTop: 10,
-//                 marginBottom: 10,
-//                 borderBottomWidth: 1,
-//                 borderBottomColor: "#A6A1A5",
-//               }}
-//             >
-//               <Image
-//                 source={Images.logo}
-//                 style={{
-//                   width: 53.08 * 2,
-//                   height: 15.07 * 2,
-//                 }}
-//               />
-
-//               <TouchableOpacity
-//                 onPress={handleAvatarPress}
-//                 style={{
-//                   width: 35,
-//                   height: 35,
-//                   backgroundColor: "#ffffff",
-//                   borderRadius: 30,
-//                   overflow: "hidden",
-//                 }}
-//               >
-//                 {profile?.profilePicture ? (
-//                   <Image
-//                     source={{ uri: profile.profilePicture }}
-//                     style={{ width: "100%", height: "100%" }}
-//                   />
-//                 ) : null}
-//               </TouchableOpacity>
-//             </View>
-
-//             {/* CATEGORY */}
-//             <CategoryTabs
-//               data={categories}
-//               activeCategory={activeCategory}
-//               onSelect={(id) => setActiveCategory(id)}
-//             />
-//           </>
+//         ListHeaderComponent={<Header />}
+//         ListEmptyComponent={
+//           <View style={{ padding: 40, alignItems: "center" }}>
+//             <Text style={{ color: "#686666" }}>No posts found.</Text>
+//           </View>
 //         }
 //         renderItem={({ item }) => <PostCard post={item as any} />}
 //       />
@@ -485,7 +575,7 @@ export default Home;
 //           }}
 //         >
 //           {/* HEADER */}
-//           <View style={{ padding: 20, marginTop: 25 }}>
+//           <View style={{ padding: 20 }}>
 //             <Pressable onPress={closeSearch}>
 //               <View style={{ alignSelf: "flex-end", marginBottom: 10 }}>
 //                 <Image
@@ -522,7 +612,7 @@ export default Home;
 //                   borderBottomWidth: 1,
 //                   borderBottomColor: "#222",
 //                 }}
-//               >
+//                 >
 //                 <PostCard post={item as any} />
 //               </TouchableOpacity>
 //             )}

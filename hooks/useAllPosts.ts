@@ -20,7 +20,7 @@ export function useAllPosts(options: Options = {}) {
 
     let query = supabase
       .from("posts")
-      .select("*, profiles(username, profile_picture)")
+      .select("*, profiles!posts_user_id_fkey(username, profile_picture)")
       .order("created_at", { ascending: false });
 
     if (excludeId) query = query.neq("id", excludeId);
@@ -30,9 +30,11 @@ export function useAllPosts(options: Options = {}) {
     const { data, error: fetchError } = await query;
 
     if (fetchError) {
+      console.error("useAllPosts fetch error:", fetchError);
       setError(fetchError.message);
       setPosts([]);
     } else {
+      console.log("useAllPosts: rows =", data?.length);
       setPosts((data as PostRow[]).map(mapRowToPostWithAuthor));
     }
 
