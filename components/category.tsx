@@ -1,40 +1,33 @@
 import { Category } from "@/data/category";
+import { memo } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 type Props = {
   data: Category[];
   activeCategory: string;
   onSelect: (id: string) => void;
-  showAll?: boolean;
 };
 
-export default function CategoryTabs({
-  data,
-  activeCategory,
-  onSelect,
-  showAll = true,
-}: Props) {
+function CategoryTabs({ data, activeCategory, onSelect }: Props) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
     >
-      {showAll ? (
-        <TouchableOpacity
-          onPress={() => onSelect("all")}
-          style={[
-            styles.button,
-            {
-              backgroundColor: activeCategory === "all" ? "#ED3237" : "#848688",
-            },
-          ]}
-        >
-          <Text style={styles.text}>All</Text>
-        </TouchableOpacity>
-      ) : null}
+      <TouchableOpacity
+        onPress={() => onSelect("all")}
+        style={[
+          styles.button,
+          {
+            backgroundColor: activeCategory === "all" ? "#ED3237" : "#848688",
+          },
+        ]}
+      >
+        <Text style={styles.text}>All</Text>
+      </TouchableOpacity>
 
+      {/* REAL CATEGORIES */}
       {data.map((item) => {
         const isActive = item.id === activeCategory;
 
@@ -57,16 +50,12 @@ export default function CategoryTabs({
 
 const styles = StyleSheet.create({
   container: {
-    paddingLeft: 0,
+    paddingLeft: 20,
     marginBottom: 20,
   },
-  contentContainer: {
-    paddingRight: 20,
-  },
   button: {
-    minWidth: 120,
-    paddingHorizontal: 16,
-    height: 50,
+    width: 141,
+    height: 43,
     borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
@@ -78,3 +67,81 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+
+// Only re-renders when the active category or the category list itself
+// changes — typing in search no longer re-renders every tab.
+export default memo(CategoryTabs);
+
+// import { Category } from "@/data/category";
+// import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
+
+// type Props = {
+//   data: Category[];
+//   activeCategory: string;
+//   onSelect: (id: string) => void;
+// };
+
+// export default function CategoryTabs({
+//   data,
+//   activeCategory,
+//   onSelect,
+// }: Props) {
+//   return (
+//     <ScrollView
+//       horizontal
+//       showsHorizontalScrollIndicator={false}
+//       style={styles.container}
+//     >
+      
+//       <TouchableOpacity
+//         onPress={() => onSelect("all")}
+//         style={[
+//           styles.button,
+//           {
+//             backgroundColor: activeCategory === "all" ? "#ED3237" : "#848688",
+//           },
+//         ]}
+//       >
+//         <Text style={styles.text}>All</Text>
+//       </TouchableOpacity>
+
+//       {/* REAL CATEGORIES */}
+//       {data.map((item) => {
+//         const isActive = item.id === activeCategory;
+
+//         return (
+//           <TouchableOpacity
+//             key={item.id}
+//             onPress={() => onSelect(item.id)}
+//             style={[
+//               styles.button,
+//               { backgroundColor: isActive ? "#ED3237" : "#848688" },
+//             ]}
+//           >
+//             <Text style={styles.text}>{item.title}</Text>
+//           </TouchableOpacity>
+//         );
+//       })}
+//     </ScrollView>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   container: {
+//     paddingLeft: 20,
+//     marginBottom: 20,
+//   },
+//   button: {
+//     width: 141,
+//     height: 43,
+//     borderRadius: 6,
+//     justifyContent: "center",
+//     alignItems: "center",
+//     marginRight: 10,
+//   },
+//   text: {
+//     color: "#fff",
+//     fontSize: 14,
+//     fontWeight: "bold",
+//   },
+// });
