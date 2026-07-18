@@ -1,6 +1,8 @@
+import { SuggestedPeople } from "@/components/SuggestedPeople";
 import { Icons } from "@/constants/icons";
 import { useAuth } from "@/hooks/useAuth";
 import { useFollow } from "@/hooks/useFollow";
+import { useProfileImageUpload } from "@/hooks/useProfileImageUpload";
 import { useUserPosts } from "@/hooks/useUserPosts";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
@@ -14,6 +16,7 @@ import {
   Image,
   ImageBackground,
   Modal,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,8 +28,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 /* =========================
    🔥 RESPONSIVE BREAKPOINTS
-   Tuned for: phone / tablet / laptop / large monitor.
-   Adjust the numbers to taste — these are fairly standard.
 ========================= */
 const BREAKPOINTS = {
   tablet: 768,
@@ -35,20 +36,14 @@ const BREAKPOINTS = {
 };
 
 function getColumnCount(width: number) {
-  if (width >= BREAKPOINTS.desktop) return 6;
-  if (width >= BREAKPOINTS.laptop) return 5;
+  if (width >= BREAKPOINTS.desktop) return 4;
+  if (width >= BREAKPOINTS.laptop) return 3;
   if (width >= BREAKPOINTS.tablet) return 3;
   return 1;
 }
 
 /* =========================
    🔥 LIGHTWEIGHT MASONRY
-   Distributes items round-robin into N columns. This is NOT true
-   height-balanced masonry (that needs per-image aspect ratios measured
-   up front), but it's cheap, has zero deps, and looks good enough for
-   image grids of roughly similar aspect ratio. If posts vary wildly in
-   height, swap this for a "shortest column gets the next item" packer
-   once you have real image dimensions available.
 ========================= */
 function distributeToColumns<T>(items: T[], columnCount: number): T[][] {
   const cols: T[][] = Array.from({ length: columnCount }, () => []);
@@ -61,7 +56,7 @@ export default function ProfileScreen() {
   const Route = useRouter();
   const [settingsVisible, setSettingsVisible] = useState(false);
 
-  const isDesktop = width >= BREAKPOINTS.tablet; // Pinterest-style split kicks in here
+  const isDesktop = width >= BREAKPOINTS.tablet;
   const columnCount = useMemo(() => getColumnCount(width), [width]);
 
   const slideAnim = useRef(new Animated.Value(width)).current;
@@ -117,14 +112,6 @@ export default function ProfileScreen() {
 
   /* =========================
      🔥 LAZY-SEQUENCED POSTS
-     `useUserPosts(user?.id)` is passed `undefined` until the profile
-     resolves, so the posts request never fires in parallel with the
-     profile fetch — it's naturally staged: profile → posts.
-     This mirrors the load order you want: post/profile first, grid second,
-     and (in the post-detail screen) comments only when that panel opens —
-     i.e. don't call a `useComments()` hook unconditionally on mount there;
-     gate it behind a `commentsOpen` boolean the same way `useFollow` is
-     gated behind `enabled` here.
   ========================= */
   const postsEnabled = !loading && !!user?.id;
   const {
@@ -142,10 +129,10 @@ export default function ProfileScreen() {
   /* =========================
      🔥 RANDOM BACKGROUND
   ========================= */
-  const randomPost =
-    userPosts.length > 0
-      ? userPosts[Math.floor(Math.random() * userPosts.length)]
-      : null;
+  const randomPost = useMemo(() => {
+    if (userPosts.length === 0) return null;
+    return userPosts[Math.floor(Math.random() * userPosts.length)];
+  }, [user?.id, userPosts.length]);
 
   /* =========================
      🔥 SCROLL ANIMATION
@@ -236,6 +223,37 @@ export default function ProfileScreen() {
     [userPosts, columnCount]
   );
 
+  /* =========================
+     🔥 EDIT PROFILE PICTURE
+  ========================= */
+  const [pressingAvatar, setPressingAvatar] = useState(false);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
+  const [localProfilePicture, setLocalProfilePicture] = useState<string | undefined>(
+    user?.profilePicture || undefined
+  );
+
+  useEffect(() => {
+    setLocalProfilePicture(user?.profilePicture || undefined);
+  }, [user?.profilePicture]);
+
+  const { uploading, pickAndUpload } = useProfileImageUpload({
+    userId: myProfile?.id,
+    onUploaded: (url) => setLocalProfilePicture(url),
+  });
+
+  const handleAvatarPress = useCallback(() => {
+    if (!isOwner) return;
+    setPhotoSheetVisible(true);
+  }, [isOwner]);
+
+  const handlePickSource = useCallback(
+    async (source: "camera" | "gallery") => {
+      setPhotoSheetVisible(false);
+      await pickAndUpload(source);
+    },
+    [pickAndUpload]
+  );
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
@@ -296,10 +314,52 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
+  /* Avatar + edit affordance, shared between mobile and desktop layouts.
+     ⚠️ FIX: Pressable had no style, so it sized to its content. Its child
+     Image uses percentage width/height ("100%"), which needs a *sized*
+     parent to resolve against — an unstyled Pressable can't provide that,
+     so the Image collapsed to nothing even though the URL was valid.
+     `avatarPressable` (width/height 100%) makes Pressable fill profileBox/
+     desktopImageBox, giving the Image something real to size against. */
+  const avatarBlock = (
+    <Pressable
+      style={styles.avatarPressable}
+      onPress={handleAvatarPress}
+      onPressIn={() => isOwner && setPressingAvatar(true)}
+      onPressOut={() => setPressingAvatar(false)}
+      disabled={!isOwner}
+    >
+      <Image
+        source={{ uri: localProfilePicture || user.profilePicture || undefined }}
+        style={isDesktop ? styles.desktopProfileImage : styles.profileImage}
+      />
+
+      {isOwner && (pressingAvatar || uploading) && (
+        <View style={styles.avatarOverlay}>
+          <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFillObject} />
+          {uploading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.avatarOverlayGlyph}>✎</Text>
+              <Text style={styles.avatarOverlayText}>Edit Photo</Text>
+            </>
+          )}
+        </View>
+      )}
+
+      {isOwner && !pressingAvatar && !uploading && (
+        <View style={styles.editProfileButton}>
+          <Text style={styles.editGlyph}>✎</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={{ uri: randomPost?.image || user.profilePicture }}
+        source={{ uri: randomPost?.image || user.profilePicture || undefined }}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -345,9 +405,7 @@ export default function ProfileScreen() {
             >
               <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
 
-              <View style={styles.desktopImageBox}>
-                <Image source={{ uri: user.profilePicture }} style={styles.desktopProfileImage} />
-              </View>
+              <View style={styles.desktopImageBox}>{avatarBlock}</View>
 
               <View style={styles.desktopContent}>
                 <Text style={[styles.name, { textAlign: "left" }]}>{user.name}</Text>
@@ -367,9 +425,7 @@ export default function ProfileScreen() {
             >
               <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
 
-              <View style={styles.profileBox}>
-                <Image source={{ uri: user.profilePicture }} style={styles.profileImage} />
-              </View>
+              <View style={styles.profileBox}>{avatarBlock}</View>
 
               <View style={styles.content}>
                 <Text style={styles.name}>{user.name}</Text>
@@ -380,6 +436,12 @@ export default function ProfileScreen() {
               {followButton}
             </Animated.View>
           )}
+
+          {/* DISCOVER PEOPLE — own profile only.
+              🔧 "See all" pushes to /screen/discoverPeople, which doesn't
+              exist in your app/screen tree yet — either create that route
+              or change/remove the button in SuggestedPeople.tsx. */}
+          {isOwner && myProfile?.id && <SuggestedPeople viewerId={myProfile.id} />}
 
           {/* POSTS — column count scales with breakpoint */}
           <View style={styles.postsWrapper}>
@@ -460,6 +522,42 @@ export default function ProfileScreen() {
             </View>
           </Modal>
         )}
+
+        {/* CAMERA / GALLERY PICKER SHEET */}
+        {isOwner && (
+          <Modal
+            transparent
+            visible={photoSheetVisible}
+            animationType="slide"
+            onRequestClose={() => setPhotoSheetVisible(false)}
+          >
+            <Pressable
+              style={styles.sheetOverlay}
+              onPress={() => setPhotoSheetVisible(false)}
+            >
+              <View style={styles.sheet}>
+                <TouchableOpacity
+                  style={styles.sheetOption}
+                  onPress={() => handlePickSource("camera")}
+                >
+                  <Text style={styles.sheetOptionText}>Take Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.sheetOption}
+                  onPress={() => handlePickSource("gallery")}
+                >
+                  <Text style={styles.sheetOptionText}>Choose from Gallery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.sheetOption, { borderBottomWidth: 0 }]}
+                  onPress={() => setPhotoSheetVisible(false)}
+                >
+                  <Text style={[styles.sheetOptionText, { color: "#ED3237" }]}>✕  Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Modal>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -480,7 +578,6 @@ const styles = StyleSheet.create({
   },
   icon: { width: 22, height: 22 },
 
-  // Mobile card (unchanged)
   card: {
     marginTop: 100,
     borderTopLeftRadius: 30,
@@ -529,7 +626,6 @@ const styles = StyleSheet.create({
   followingBtn: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#ED3237" },
   followText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
 
-  // Desktop / Pinterest-style card — image left, content right
   desktopCard: {
     marginTop: 60,
     borderRadius: 30,
@@ -554,6 +650,46 @@ const styles = StyleSheet.create({
   },
   desktopProfileImage: { width: "100%", height: "100%" },
   desktopContent: { flex: 1, justifyContent: "center" },
+
+  editProfileButton: {
+    position: "absolute",
+    right: -5,
+    bottom: -5,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#ED3237",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  avatarPressable: { width: "100%", height: "100%" },
+  editGlyph: { color: "#fff", fontSize: 16, lineHeight: 18 },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 27,
+    overflow: "hidden",
+  },
+  avatarOverlayGlyph: { color: "#fff", fontSize: 18 },
+  avatarOverlayText: { color: "#fff", fontSize: 12, fontWeight: "600", marginTop: 4 },
+
+  sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: "#151515",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingBottom: 30,
+  },
+  sheetOption: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  sheetOptionText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 
   postsWrapper: {
     marginTop: 24,
