@@ -1,7 +1,7 @@
 import { Images } from "@/constants/images";
 import { useAuth } from "@/hooks/useAuth";
 import { Asset } from "expo-asset";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 
@@ -71,6 +71,13 @@ export default function Index() {
         style={styles.logo}
       />
       <Text style={styles.tagline}>Imagination to creation</Text>
+      <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 10 }}>
+                    <Text style={styles.tagline1}>In collaboration with </Text>
+                    <Link href="https://bogoapp.io" style={styles.tagline}>
+                      bogoapp.io
+                    </Link>
+                  </View>
+
     </View>
   );
 }
@@ -90,6 +97,9 @@ const styles = StyleSheet.create({
   tagline: {
     color: "#FEFEFE",
     fontWeight: "bold",
+  },
+    tagline1: {
+    color: "#FEFEFE",
   },
 });
 

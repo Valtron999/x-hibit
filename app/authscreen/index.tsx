@@ -1,5 +1,5 @@
 import { Images } from "@/constants/images";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
   Animated,
@@ -9,7 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ViewStyle
+  ViewStyle,
 } from "react-native";
 
 type FloatingImage = {
@@ -129,6 +129,12 @@ const FloatingCollage = () => {
                     style={styles.logo}
                   />
                   <Text style={styles.tagline}>Imagination to creation</Text>
+                  <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 10 }}>
+                    <Text style={styles.tagline1}>In collaboration with </Text>
+                    <Link href="https://bogoapp.io" style={styles.tagline}>
+                      bogoapp.io
+                    </Link>
+                  </View>
                 <TouchableOpacity style={{ height: 54.0, minWidth: 334.0, backgroundColor: "#ED3237", borderRadius: 11, justifyContent: "center", alignItems: "center", marginTop: 30 }} onPress={()=> Route.push("/authscreen/signup")}>
                   <Text style={{ color: "#FEFEFE", fontWeight: "bold" }}>Get Started</Text>
                 </TouchableOpacity>
@@ -154,6 +160,10 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     backgroundColor: "#030303",
+  },
+
+    tagline1: {
+    color: "#FEFEFE",
   },
 
   card: {
