@@ -337,20 +337,20 @@ const SignUpScreen = () => {
     }
   })();
 
-  const pickImage = async () => {
+  const pickImage = async (onSelected?: () => void) => {
     if (Platform.OS === "web") {
-      await launchPicker("gallery");
+      await launchPicker("gallery", onSelected);
       return;
     }
 
     Alert.alert("Profile photo", "Choose a source", [
-      { text: "Camera", onPress: () => launchPicker("camera") },
-      { text: "Photo Library", onPress: () => launchPicker("gallery") },
+      { text: "Camera", onPress: () => launchPicker("camera", onSelected) },
+      { text: "Photo Library", onPress: () => launchPicker("gallery", onSelected) },
       { text: "Cancel", style: "cancel" },
     ]);
   };
 
-  const launchPicker = async (source: "camera" | "gallery") => {
+  const launchPicker = async (source: "camera" | "gallery", onSelected?: () => void) => {
     const permission =
       source === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -373,6 +373,7 @@ const SignUpScreen = () => {
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
     setProfileImage({ uri: asset.uri, mimeType: asset.mimeType ?? undefined });
+    onSelected?.();
   };
 
   const handleSignUp = async () => {
@@ -577,7 +578,7 @@ const SignUpScreen = () => {
                   <Image source={Icons.back} style={styles.avatarPlaceholderIcon} />
                 )}
               </View>
-              <TouchableOpacity style={styles.avatarAddBadge} onPress={pickImage}>
+              <TouchableOpacity style={styles.avatarAddBadge} onPress={() => pickImage()}>
                 <Text style={{ fontSize: 20, fontWeight: "700" }}>+</Text>
               </TouchableOpacity>
             </View>
@@ -603,8 +604,8 @@ const SignUpScreen = () => {
     }
   };
 
-  const primaryLabel = step === "photo" ? "Choose photo" : step === "terms" ? "Sign up" : "Continue";
-  const primaryDisabled = step === "photo" ? false : !isStepValid;
+  const primaryLabel = step === "photo" ? "Save photo" : step === "terms" ? "Sign up" : "Continue";
+  const primaryDisabled = step === "photo" ? !profileImage : !isStepValid;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#030303" }}>
@@ -620,7 +621,7 @@ const SignUpScreen = () => {
             label={primaryLabel}
             disabled={primaryDisabled}
             loading={submitting && step === "terms"}
-            onPress={step === "photo" ? pickImage : handlePrimaryPress}
+            onPress={step === "photo" ? goNext : handlePrimaryPress}
           />
           {step === "photo" && (
             <TouchableOpacity onPress={goNext} style={{ alignItems: "center", marginBottom: 10 }}>
