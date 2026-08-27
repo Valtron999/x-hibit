@@ -1,5 +1,4 @@
-// NOTE: install FlashList if you haven't already:
-//   npx expo install @shopify/flash-list
+
 
 import CategoryTabs from "@/components/category";
 import PostCard from "@/components/PostCard";
@@ -15,7 +14,7 @@ import type { PostWithAuthor } from "@/lib/mapPost";
 import MasonryList from "@react-native-seoul/masonry-list";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -27,12 +26,42 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Search result types ──────────────────────────────────────────────────
 type PostSearchItem = PostWithAuthor & { kind: "post"; searchText: string };
 type UserSearchItem = User & { kind: "user"; searchText: string };
 type SearchItem = PostSearchItem | UserSearchItem;
+
+// ── Masonry grid tuning ───────────────────────────────────────────────────
+// These MUST stay in sync with the margin values used inside PostCard.tsx.
+// (Ideally move these into a shared constants file so there's only one
+// source of truth — left as-is here since I don't have your constants dir.)
+const CARD_MIN_WIDTH = 200; // cards never get narrower than this
+const CARD_MAX_WIDTH = 280; // cards never get wider than this
+const CARD_GAP = 16; // total horizontal gap "spent" per card (split 8/8 as margin in PostCard)
+const MIN_COLUMNS = 2;
+
+function computeGrid(containerWidth: number) {
+  if (containerWidth <= 0) {
+    return { numColumns: MIN_COLUMNS, columnWidth: CARD_MIN_WIDTH };
+  }
+
+  // How many columns fit if every card were at its minimum width?
+  let columns = Math.floor(containerWidth / (CARD_MIN_WIDTH + CARD_GAP));
+  columns = Math.max(MIN_COLUMNS, columns);
+
+  let columnWidth = containerWidth / columns - CARD_GAP;
+
+  // If that leaves cards too fat (e.g. an in-between window size), add
+  // columns until they fall back into a comfortable range.
+  while (columnWidth > CARD_MAX_WIDTH) {
+    columns += 1;
+    columnWidth = containerWidth / columns - CARD_GAP;
+  }
+
+  return { numColumns: columns, columnWidth: Math.max(columnWidth, 80) };
+}
 
 // ── Small shared helper: initials fallback avatar (no extra asset needed) ─
 function getInitials(name?: string) {
@@ -81,6 +110,7 @@ type HeaderProps = {
   activeCategory: string;
   onSelectCategory: (id: string) => void;
   onAvatarPress: () => void;
+  onSearchPress: () => void;
 };
 
 const Header = memo(function Header({
@@ -88,19 +118,30 @@ const Header = memo(function Header({
   activeCategory,
   onSelectCategory,
   onAvatarPress,
+  onSearchPress,
 }: HeaderProps) {
   return (
     <>
       <View style={styles.headerRow}>
         <Image source={Images.logo} style={styles.logo} />
 
-        <TouchableOpacity onPress={onAvatarPress} style={styles.avatarButton}>
-          <Avatar
-            uri={profile?.profilePicture}
-            name={profile?.name}
-            size={35}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={onSearchPress}
+            style={styles.headerIconButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Image source={Icons.search} style={styles.headerIcon} />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onAvatarPress} style={styles.avatarButton}>
+            <Avatar
+              uri={profile?.profilePicture}
+              name={profile?.name}
+              size={35}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <CategoryTabs
@@ -116,8 +157,11 @@ const Header = memo(function Header({
 function SkeletonBlock({ height }: { height: number }) {
   const pulse = useRef(new Animated.Value(0.4)).current;
 
-  useMemo(() => {
-    Animated.loop(
+  // FIX: this is a side effect (starting an animation loop), so it belongs
+  // in useEffect, not useMemo. useMemo isn't guaranteed to run only once
+  // and shouldn't be used to trigger effects.
+  useEffect(() => {
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
           toValue: 1,
@@ -130,9 +174,10 @@ function SkeletonBlock({ height }: { height: number }) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
 
   return (
     <Animated.View
@@ -190,14 +235,13 @@ const Home = () => {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { profile } = useAuth();
+  const insets = useSafeAreaInsets();
 
-  const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
-
-  const CARD_MARGIN = 6;
-  const HORIZONTAL_PADDING = 0;
-  const columnWidth =
-    (width - HORIZONTAL_PADDING * 2 - CARD_MARGIN * 2 * numColumns) /
-    numColumns;
+  // ✅ Genuinely responsive grid: driven by available width + a comfortable
+  // min/max card width, not fixed breakpoints. Because useWindowDimensions
+  // reacts to browser resize/zoom, this recalculates naturally — no zoom
+  // detection hacks needed.
+  const { numColumns, columnWidth } = useMemo(() => computeGrid(width), [width]);
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -266,7 +310,8 @@ const Home = () => {
     return [...matchedUsers, ...matchedPosts];
   }, [debouncedQuery, usersIndex, postsIndex]);
 
-  // ✅ Stable handlers
+  // ✅ Stable handlers — search behavior itself is untouched, only *where*
+  // it's triggered from changed (header icon instead of bottom FAB).
   const openSearch = useCallback(() => {
     setSearchOpen(true);
     Animated.parallel([
@@ -305,6 +350,15 @@ const Home = () => {
     setActiveCategory(id);
   }, []);
 
+  // ⚠️ TODO: point this at your real Create/Add Post route. I don't have
+  // access to your routes/navigation to find the existing one, so this is
+  // a placeholder — swap the path below for whatever your app already uses
+  // (e.g. a route under /screen/create, a modal route, etc.). If Add Post
+  // logic lives in a hook/handler elsewhere, call that instead of router.push.
+  const handleAddPost = useCallback(() => {
+    router.push("/screen/createPost");
+  }, [router]);
+
   const goToUser = useCallback(
     (id: string) => router.push(`/screen/users/${id}`),
     [router]
@@ -317,7 +371,7 @@ const Home = () => {
 
   // ✅ Memoized renderItem for the main feed — accept unknown items and assert type
   const renderPost = useCallback(
-    ({ item, i }: { item: any; i: number }) => (
+    ({ item }: { item: any }) => (
       <PostCard post={item as PostWithAuthor} cardWidth={columnWidth} />
     ),
     [columnWidth]
@@ -346,6 +400,7 @@ const Home = () => {
       activeCategory={activeCategory}
       onSelectCategory={handleSelectCategory}
       onAvatarPress={handleAvatarPress}
+      onSearchPress={openSearch}
     />
   );
 
@@ -392,12 +447,20 @@ const Home = () => {
         renderItem={renderPost}
       />
 
-      {/* FLOATING SEARCH BUTTON */}
+      {/* FLOATING ADD POST BUTTON (was Search — Search now lives in the header) */}
       <Animated.View
-        style={[styles.fab, { transform: [{ scale: scaleAnim }] }]}
+        style={[
+          styles.fab,
+          {
+            bottom: 25 + insets.bottom,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
       >
-        <TouchableOpacity onPress={openSearch}>
-          <Image source={Icons.search} style={styles.fabIcon} />
+        <TouchableOpacity onPress={handleAddPost} style={styles.fabTouchable}>
+          {/* Swap this Text glyph for Icons.add (or whatever your existing
+              add/create icon is called) once you confirm it exists. */}
+          <Text style={styles.fabIconText}>+</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -462,6 +525,18 @@ const styles = StyleSheet.create({
     borderBottomColor: "#A6A1A5",
   },
   logo: { width: 53.08 * 2, height: 15.07 * 2 },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12, // gap before the avatar (in case `gap` isn't supported on your RN version)
+  },
+  headerIcon: { width: 22, height: 22, tintColor: "#fff" },
   avatarButton: {
     width: 35,
     height: 35,
@@ -491,7 +566,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
-  fabIcon: { width: 24, height: 24, tintColor: "#fff" },
+  fabTouchable: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fabIconText: {
+    color: "#fff",
+    fontSize: 30,
+    fontWeight: "300",
+    lineHeight: 32,
+  },
   searchModal: {
     position: "absolute",
     top: 0,
@@ -525,630 +611,3 @@ const styles = StyleSheet.create({
 });
 
 export default Home;
-
-// import CategoryTabs from "@/components/category";
-// import PostCard from "@/components/PostCard";
-// import { Icons } from "@/constants/icons";
-// import { Images } from "@/constants/images";
-// import { categories } from "@/data/category";
-// import { useAllPosts } from "@/hooks/useAllPosts";
-// import { useAuth } from "@/hooks/useAuth";
-// import MasonryList from "@react-native-seoul/masonry-list";
-// import { useRouter } from "expo-router";
-// import { useMemo, useRef, useState } from "react";
-// import {
-//   ActivityIndicator,
-//   Animated,
-//   FlatList,
-//   Image,
-//   Pressable,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   View,
-//   useWindowDimensions,
-// } from "react-native";
-// import { SafeAreaView } from "react-native-safe-area-context";
-
-// const Home = () => {
-//   const Route = useRouter();
-//   const { width } = useWindowDimensions();
-//   const { profile } = useAuth();
-
-//   const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
-
-//   // card sizing: must match PostCard's own margin (6 on each side = 12/card)
-//   const CARD_MARGIN = 6;
-//   const HORIZONTAL_PADDING = 0; // bump this if MasonryList has outer padding
-//   const columnWidth =
-//     (width - HORIZONTAL_PADDING * 2 - CARD_MARGIN * 2 * numColumns) /
-//     numColumns;
-
-//   const [activeCategory, setActiveCategory] = useState("all");
-//   const [searchOpen, setSearchOpen] = useState(false);
-//   const [query, setQuery] = useState("");
-
-//   const scaleAnim = useRef(new Animated.Value(1)).current;
-//   const modalAnim = useRef(new Animated.Value(0)).current;
-
-//   // ✅ Real data from Supabase
-//   const { posts, loading, error, refetch } = useAllPosts();
-
-//   // ✅ Combined filtering (category + search)
-//   const finalPosts = useMemo(() => {
-//     let result = posts;
-
-//     // category filter
-//     if (activeCategory !== "all") {
-//       result = result.filter((post) => post.category === activeCategory);
-//     }
-
-//     // search filter
-//     if (query) {
-//       const q = query.toLowerCase();
-
-//       result = result.filter((post) => {
-//         const inTitle = post.title?.toLowerCase().includes(q);
-
-//         const inDescription = post.description
-//           ?.toLowerCase()
-//           .includes(q);
-
-//         const inTags = post.tags?.some((tag) =>
-//           tag.toLowerCase().includes(q)
-//         );
-
-//         const inCategory = post.category?.toLowerCase().includes(q);
-
-//         return inTitle || inDescription || inTags || inCategory;
-//       });
-//     }
-
-//     return result;
-//   }, [posts, activeCategory, query]);
-
-//   // ✅ Animations
-//   const openSearch = () => {
-//     setSearchOpen(true);
-
-//     Animated.parallel([
-//       Animated.spring(scaleAnim, {
-//         toValue: 0.9,
-//         useNativeDriver: true,
-//       }),
-//       Animated.timing(modalAnim, {
-//         toValue: 1,
-//         duration: 250,
-//         useNativeDriver: true,
-//       }),
-//     ]).start();
-//   };
-
-//   const closeSearch = () => {
-//     Animated.parallel([
-//       Animated.spring(scaleAnim, {
-//         toValue: 1,
-//         useNativeDriver: true,
-//       }),
-//       Animated.timing(modalAnim, {
-//         toValue: 0,
-//         duration: 200,
-//         useNativeDriver: true,
-//       }),
-//     ]).start(() => {
-//       setSearchOpen(false);
-//       setQuery("");
-//     });
-//   };
-
-//   const modalTranslateY = modalAnim.interpolate({
-//     inputRange: [0, 1],
-//     outputRange: [900, 0],
-//   });
-
-//   // Tapping the avatar goes to your own profile if logged in, otherwise to login
-//   const handleAvatarPress = () => {
-//     if (profile) {
-//       Route.push(`/screen/users/${profile.id}`);
-//     } else {
-//       Route.push("/authscreen/login");
-//     }
-//   };
-
-//   const Header = () => (
-//     <>
-//       {/* HEADER */}
-//       <View
-//         style={{
-//           flexDirection: "row",
-//           justifyContent: "space-between",
-//           alignItems: "center",
-//           paddingHorizontal: 20,
-//           paddingBottom: 10,
-//           marginTop: 10,
-//           marginBottom: 10,
-//           borderBottomWidth: 1,
-//           borderBottomColor: "#A6A1A5",
-//         }}
-//       >
-//         <Image
-//           source={Images.logo}
-//           style={{
-//             width: 53.08 * 2,
-//             height: 15.07 * 2,
-//           }}
-//         />
-
-//         <TouchableOpacity
-//           onPress={handleAvatarPress}
-//           style={{
-//             width: 35,
-//             height: 35,
-//             backgroundColor: "#ffffff",
-//             borderRadius: 30,
-//             overflow: "hidden",
-//           }}
-//         >
-//           {profile?.profilePicture ? (
-//             <Image
-//               source={{ uri: profile.profilePicture }}
-//               style={{ width: "100%", height: "100%" }}
-//             />
-//           ) : null}
-//         </TouchableOpacity>
-//       </View>
-
-//       {/* CATEGORY */}
-//       <CategoryTabs
-//         data={categories}
-//         activeCategory={activeCategory}
-//         onSelect={(id) => setActiveCategory(id)}
-//       />
-//     </>
-//   );
-
-//   // ── Loading state ───────────────────────────────────────────────────────
-//   if (loading && posts.length === 0) {
-//     return (
-//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//         <Header />
-//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-//           <ActivityIndicator color="#fff" />
-//         </View>
-//       </SafeAreaView>
-//     );
-//   }
-
-//   // ── Error state ─────────────────────────────────────────────────────────
-//   if (error && posts.length === 0) {
-//     return (
-//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//         <Header />
-//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30 }}>
-//           <Text style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}>
-//             {error}
-//           </Text>
-//           <TouchableOpacity onPress={refetch}>
-//             <Text style={{ color: "#D4D2D3" }}>Try again</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </SafeAreaView>
-//     );
-//   }
-
-//   return (
-//     <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//       {/* ✅ MAIN FEED (NO ScrollView) */}
-//       <MasonryList
-//         data={finalPosts}
-//         keyExtractor={(item) => item.id}
-//         numColumns={numColumns}
-//         showsVerticalScrollIndicator={false}
-//         ListHeaderComponent={<Header />}
-//         ListEmptyComponent={
-//           <View style={{ padding: 40, alignItems: "center" }}>
-//             <Text style={{ color: "#686666" }}>No posts found.</Text>
-//           </View>
-//         }
-//         renderItem={({ item }) => (
-//           <PostCard post={item as any} cardWidth={columnWidth} />
-//         )}
-//       />
-
-//       {/* FLOATING SEARCH BUTTON */}
-//       <Animated.View
-//         style={{
-//           position: "absolute",
-//           bottom: 25,
-//           right: 20,
-//           width: 60,
-//           height: 60,
-//           borderRadius: 30,
-//           backgroundColor: "#000",
-//           justifyContent: "center",
-//           alignItems: "center",
-//           transform: [{ scale: scaleAnim }],
-//           zIndex: 100,
-//         }}
-//       >
-//         <TouchableOpacity onPress={openSearch}>
-//           <Image
-//             source={Icons.search}
-//             style={{ width: 24, height: 24, tintColor: "#fff" }}
-//           />
-//         </TouchableOpacity>
-//       </Animated.View>
-
-//       {/* SEARCH MODAL */}
-//       {searchOpen && (
-//         <Animated.View
-//           style={{
-//             position: "absolute",
-//             top: 0,
-//             left: 0,
-//             right: 0,
-//             bottom: 0,
-//             backgroundColor: "#030303",
-//             transform: [{ translateY: modalTranslateY }],
-//             zIndex: 200,
-//           }}
-//         >
-//           {/* HEADER */}
-//           <View style={{ padding: 20 }}>
-//             <Pressable onPress={closeSearch}>
-//               <View style={{ alignSelf: "flex-end", marginBottom: 10 }}>
-//                 <Image
-//                   source={Icons.close}
-//                   style={{ width: 24, height: 24, tintColor: "#fff" }}
-//                 />
-//               </View>
-//             </Pressable>
-
-//             <TextInput
-//               value={query}
-//               onChangeText={setQuery}
-//               placeholder="Search posts..."
-//               placeholderTextColor="#aaa"
-//               style={{
-//                 backgroundColor: "#111",
-//                 padding: 15,
-//                 borderRadius: 12,
-//                 color: "white",
-//               }}
-//             />
-//           </View>
-
-//           {/* RESULTS */}
-//           <FlatList
-//             data={finalPosts}
-//             keyExtractor={(item) => item.id}
-//             keyboardShouldPersistTaps="handled"
-//             contentContainerStyle={{ paddingHorizontal: 20 }}
-//             renderItem={({ item }) => (
-//               <TouchableOpacity
-//                 style={{
-//                   paddingVertical: 12,
-//                   borderBottomWidth: 1,
-//                   borderBottomColor: "#222",
-//                 }}
-//               >
-//                 <PostCard post={item as any} cardWidth={width - 40} />
-//               </TouchableOpacity>
-//             )}
-//           />
-//         </Animated.View>
-//       )}
-//     </SafeAreaView>
-//   );
-// };
-
-// export default Home;
-
-// import CategoryTabs from "@/components/category";
-// import PostCard from "@/components/PostCard";
-// import { Icons } from "@/constants/icons";
-// import { Images } from "@/constants/images";
-// import { categories } from "@/data/category";
-// import { useAllPosts } from "@/hooks/useAllPosts";
-// import { useAuth } from "@/hooks/useAuth";
-// import MasonryList from "@react-native-seoul/masonry-list";
-// import { useRouter } from "expo-router";
-// import { useMemo, useRef, useState } from "react";
-// import {
-//   ActivityIndicator,
-//   Animated,
-//   FlatList,
-//   Image,
-//   Pressable,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   View,
-//   useWindowDimensions,
-// } from "react-native";
-// import { SafeAreaView } from "react-native-safe-area-context";
-
-// const Home = () => {
-//   const Route = useRouter();
-//   const { width } = useWindowDimensions();
-//   const { profile } = useAuth();
-
-//   const numColumns = width > 900 ? 4 : width > 600 ? 3 : 2;
-
-//   const [activeCategory, setActiveCategory] = useState("all");
-//   const [searchOpen, setSearchOpen] = useState(false);
-//   const [query, setQuery] = useState("");
-
-//   const scaleAnim = useRef(new Animated.Value(1)).current;
-//   const modalAnim = useRef(new Animated.Value(0)).current;
-
-//   // ✅ Real data from Supabase
-//   const { posts, loading, error, refetch } = useAllPosts();
-
-//   // ✅ Combined filtering (category + search)
-//   const finalPosts = useMemo(() => {
-//     let result = posts;
-
-//     // category filter
-//     if (activeCategory !== "all") {
-//       result = result.filter((post) => post.category === activeCategory);
-//     }
-
-//     // search filter
-//     if (query) {
-//       const q = query.toLowerCase();
-
-//       result = result.filter((post) => {
-//         const inTitle = post.title?.toLowerCase().includes(q);
-
-//         const inDescription = post.description
-//           ?.toLowerCase()
-//           .includes(q);
-
-//         const inTags = post.tags?.some((tag) =>
-//           tag.toLowerCase().includes(q)
-//         );
-
-//         const inCategory = post.category?.toLowerCase().includes(q);
-
-//         return inTitle || inDescription || inTags || inCategory;
-//       });
-//     }
-
-//     return result;
-//   }, [posts, activeCategory, query]);
-
-//   // ✅ Animations
-//   const openSearch = () => {
-//     setSearchOpen(true);
-
-//     Animated.parallel([
-//       Animated.spring(scaleAnim, {
-//         toValue: 0.9,
-//         useNativeDriver: true,
-//       }),
-//       Animated.timing(modalAnim, {
-//         toValue: 1,
-//         duration: 250,
-//         useNativeDriver: true,
-//       }),
-//     ]).start();
-//   };
-
-//   const closeSearch = () => {
-//     Animated.parallel([
-//       Animated.spring(scaleAnim, {
-//         toValue: 1,
-//         useNativeDriver: true,
-//       }),
-//       Animated.timing(modalAnim, {
-//         toValue: 0,
-//         duration: 200,
-//         useNativeDriver: true,
-//       }),
-//     ]).start(() => {
-//       setSearchOpen(false);
-//       setQuery("");
-//     });
-//   };
-
-//   const modalTranslateY = modalAnim.interpolate({
-//     inputRange: [0, 1],
-//     outputRange: [900, 0],
-//   });
-
-//   // Tapping the avatar goes to your own profile if logged in, otherwise to login
-//   const handleAvatarPress = () => {
-//     if (profile) {
-//       Route.push(`/screen/users/${profile.id}`);
-//     } else {
-//       Route.push("/authscreen/login");
-//     }
-//   };
-
-//   const Header = () => (
-//     <>
-//       {/* HEADER */}
-//       <View
-//         style={{
-//           flexDirection: "row",
-//           justifyContent: "space-between",
-//           alignItems: "center",
-//           paddingHorizontal: 20,
-//           paddingBottom: 10,
-//           marginTop: 10,
-//           marginBottom: 10,
-//           borderBottomWidth: 1,
-//           borderBottomColor: "#A6A1A5",
-//         }}
-//       >
-//         <Image
-//           source={Images.logo}
-//           style={{
-//             width: 53.08 * 2,
-//             height: 15.07 * 2,
-//           }}
-//         />
-
-//         <TouchableOpacity
-//           onPress={handleAvatarPress}
-//           style={{
-//             width: 35,
-//             height: 35,
-//             backgroundColor: "#ffffff",
-//             borderRadius: 30,
-//             overflow: "hidden",
-//           }}
-//         >
-//           {profile?.profilePicture ? (
-//             <Image
-//               source={{ uri: profile.profilePicture }}
-//               style={{ width: "100%", height: "100%" }}
-//             />
-//           ) : null}
-//         </TouchableOpacity>
-//       </View>
-
-//       {/* CATEGORY */}
-//       <CategoryTabs
-//         data={categories}
-//         activeCategory={activeCategory}
-//         onSelect={(id) => setActiveCategory(id)}
-//       />
-//     </>
-//   );
-
-//   // ── Loading state ───────────────────────────────────────────────────────
-//   if (loading && posts.length === 0) {
-//     return (
-//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//         <Header />
-//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-//           <ActivityIndicator color="#fff" />
-//         </View>
-//       </SafeAreaView>
-//     );
-//   }
-
-//   // ── Error state ─────────────────────────────────────────────────────────
-//   if (error && posts.length === 0) {
-//     return (
-//       <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//         <Header />
-//         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30 }}>
-//           <Text style={{ color: "#fff", textAlign: "center", marginBottom: 12 }}>
-//             {error}
-//           </Text>
-//           <TouchableOpacity onPress={refetch}>
-//             <Text style={{ color: "#D4D2D3" }}>Try again</Text>
-//           </TouchableOpacity>
-//         </View>
-//       </SafeAreaView>
-//     );
-//   }
-
-//   return (
-//     <SafeAreaView style={{ flex: 1, backgroundColor: "#030303" }}>
-//       {/* ✅ MAIN FEED (NO ScrollView) */}
-//       <MasonryList
-//         data={finalPosts}
-//         keyExtractor={(item) => item.id}
-//         numColumns={numColumns}
-//         showsVerticalScrollIndicator={false}
-//         ListHeaderComponent={<Header />}
-//         ListEmptyComponent={
-//           <View style={{ padding: 40, alignItems: "center" }}>
-//             <Text style={{ color: "#686666" }}>No posts found.</Text>
-//           </View>
-//         }
-//         renderItem={({ item }) => <PostCard post={item as any} />}
-//       />
-
-//       {/* FLOATING SEARCH BUTTON */}
-//       <Animated.View
-//         style={{
-//           position: "absolute",
-//           bottom: 25,
-//           right: 20,
-//           width: 60,
-//           height: 60,
-//           borderRadius: 30,
-//           backgroundColor: "#000",
-//           justifyContent: "center",
-//           alignItems: "center",
-//           transform: [{ scale: scaleAnim }],
-//           zIndex: 100,
-//         }}
-//       >
-//         <TouchableOpacity onPress={openSearch}>
-//           <Image
-//             source={Icons.search}
-//             style={{ width: 24, height: 24, tintColor: "#fff" }}
-//           />
-//         </TouchableOpacity>
-//       </Animated.View>
-
-//       {/* SEARCH MODAL */}
-//       {searchOpen && (
-//         <Animated.View
-//           style={{
-//             position: "absolute",
-//             top: 0,
-//             left: 0,
-//             right: 0,
-//             bottom: 0,
-//             backgroundColor: "#030303",
-//             transform: [{ translateY: modalTranslateY }],
-//             zIndex: 200,
-//           }}
-//         >
-//           {/* HEADER */}
-//           <View style={{ padding: 20 }}>
-//             <Pressable onPress={closeSearch}>
-//               <View style={{ alignSelf: "flex-end", marginBottom: 10 }}>
-//                 <Image
-//                   source={Icons.close}
-//                   style={{ width: 24, height: 24, tintColor: "#fff" }}
-//                 />
-//               </View>
-//             </Pressable>
-
-//             <TextInput
-//               value={query}
-//               onChangeText={setQuery}
-//               placeholder="Search posts..."
-//               placeholderTextColor="#aaa"
-//               style={{
-//                 backgroundColor: "#111",
-//                 padding: 15,
-//                 borderRadius: 12,
-//                 color: "white",
-//               }}
-//             />
-//           </View>
-
-//           {/* RESULTS */}
-//           <FlatList
-//             data={finalPosts}
-//             keyExtractor={(item) => item.id}
-//             keyboardShouldPersistTaps="handled"
-//             contentContainerStyle={{ paddingHorizontal: 20 }}
-//             renderItem={({ item }) => (
-//               <TouchableOpacity
-//                 style={{
-//                   paddingVertical: 12,
-//                   borderBottomWidth: 1,
-//                   borderBottomColor: "#222",
-//                 }}
-//                 >
-//                 <PostCard post={item as any} />
-//               </TouchableOpacity>
-//             )}
-//           />
-//         </Animated.View>
-//       )}
-//     </SafeAreaView>
-//   );
-// };
-
-// export default Home;
