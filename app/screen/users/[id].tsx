@@ -8,8 +8,10 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 
 import { BlurView } from "expo-blur";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { ImageSourcePropType } from "react-native";
 import {
   ActivityIndicator,
   Animated,
@@ -17,11 +19,13 @@ import {
   ImageBackground,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -49,6 +53,80 @@ function distributeToColumns<T>(items: T[], columnCount: number): T[][] {
   const cols: T[][] = Array.from({ length: columnCount }, () => []);
   items.forEach((item, i) => cols[i % columnCount].push(item));
   return cols;
+}
+
+type SettingsRowProps = {
+  icon: ImageSourcePropType;
+  title: string;
+  description?: string;
+  value?: string;
+  onPress?: () => void;
+  right?: ReactNode;
+};
+
+function SettingsRow({ icon, title, description, value, onPress, right }: SettingsRowProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.settingsRow, pressed && styles.settingsRowPressed]}
+      onPress={onPress}
+      disabled={!onPress && !right}
+    >
+      <View style={styles.settingsIconBox}>
+        <Image source={icon} style={styles.settingsIcon} />
+      </View>
+      <View style={styles.settingsRowCopy}>
+        <Text style={styles.settingsRowTitle}>{title}</Text>
+        {!!description && <Text style={styles.settingsRowDescription}>{description}</Text>}
+      </View>
+      {!!value && <Text style={styles.settingsValue} numberOfLines={1}>{value}</Text>}
+      {right || (
+        <View style={styles.settingsArrow}>
+          <Text style={styles.settingsArrowText}>›</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+function SettingsSection({
+  eyebrow,
+  children,
+}: {
+  eyebrow: string;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.settingsSection}>
+      <Text style={styles.settingsEyebrow}>{eyebrow}</Text>
+      <View style={styles.settingsGroup}>{children}</View>
+    </View>
+  );
+}
+
+function OptionChips({
+  options,
+  selected,
+  onSelect,
+}: {
+  options: string[];
+  selected: string;
+  onSelect: (option: string) => void;
+}) {
+  return (
+    <View style={styles.optionChips}>
+      {options.map((option) => (
+        <Pressable
+          key={option}
+          onPress={() => onSelect(option)}
+          style={[styles.optionChip, selected === option && styles.optionChipSelected]}
+        >
+          <Text style={[styles.optionChipText, selected === option && styles.optionChipTextSelected]}>
+            {option}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 }
 
 export default function ProfileScreen() {
@@ -80,7 +158,21 @@ export default function ProfileScreen() {
   /* =========================
      🔥 WHO IS LOGGED IN, WHO IS BEING VIEWED
   ========================= */
-  const { session, profile: myProfile, loading: authLoading } = useAuth();
+  const { session, profile: myProfile, loading: authLoading, signOut } = useAuth();
+
+  const [appearance, setAppearance] = useState("Dark");
+  const [contentDensity, setContentDensity] = useState("Balanced");
+  const [recommendations, setRecommendations] = useState("More personalized");
+  const [privacyMode, setPrivacyMode] = useState("Public");
+  const [notifications, setNotifications] = useState({
+    likes: true,
+    comments: true,
+    followers: true,
+    messages: false,
+  });
+  const [logoutVisible, setLogoutVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
   const { id } = useLocalSearchParams();
   const paramId = Array.isArray(id) ? id[0] : id;
@@ -203,6 +295,20 @@ export default function ProfileScreen() {
     }
     Route.push("/screen/createPost");
   }, [session, Route]);
+
+  const handleLogout = useCallback(async () => {
+    setLoggingOut(true);
+    setLogoutError("");
+    const { error } = await signOut();
+    if (error) {
+      setLogoutError(error.message);
+      setLoggingOut(false);
+      return;
+    }
+    setLogoutVisible(false);
+    closeSettings();
+    Route.replace("/");
+  }, [signOut, closeSettings, Route]);
 
   const goBack = useCallback(() => {
     if (Route.canGoBack()) {
@@ -502,23 +608,299 @@ export default function ProfileScreen() {
         </Animated.ScrollView>
 
         {isOwner && (
-          <Modal transparent visible={settingsVisible} animationType="none">
-            <View style={styles.modalOverlay}>
+          <Modal
+            transparent
+            visible={settingsVisible}
+            animationType="none"
+            onRequestClose={closeSettings}
+          >
+            <Pressable style={styles.modalOverlay} onPress={closeSettings}>
               <Animated.View
+                onStartShouldSetResponder={() => true}
                 style={[
                   styles.modalContainer,
-                  isDesktop && { width: 420 },
+                  isDesktop && styles.modalContainerDesktop,
                   { opacity: fadeAnim, transform: [{ translateX: slideAnim }] },
                 ]}
               >
+                <View style={styles.modalHandle} />
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Settings</Text>
-                  <TouchableOpacity onPress={closeSettings}>
-                    <Text style={styles.closeText}>Close</Text>
+                  <View>
+                    
+                    <Text style={styles.modalTitle}>Settings</Text>
+                  </View>
+                  <TouchableOpacity onPress={closeSettings} style={styles.closeButton}>
+                    <Image source={Icons.close} style={styles.closeIcon} />
                   </TouchableOpacity>
                 </View>
-                <View></View>
+
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.settingsScrollContent}
+                >
+                  <View style={styles.identityCard}>
+                    <View style={styles.identityAvatar}>
+                      {myProfile?.profilePicture ? (
+                        <Image source={{ uri: myProfile.profilePicture }} style={styles.identityAvatarImage} />
+                      ) : (
+                        <Text style={styles.identityInitials}>
+                          {myProfile?.name
+                            ?.split(" ")
+                            .map((part) => part[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.identityCopy}>
+                      {!!myProfile?.name && <Text style={styles.identityName}>{myProfile.name}</Text>}
+                      {!!myProfile?.username && <Text style={styles.identityUsername}>@{myProfile.username}</Text>}
+                      <View style={styles.identityMeta}>
+                        {!!myProfile?.category && (
+                          <Text style={styles.identityMetaText}>{myProfile.category}</Text>
+                        )}
+                        {!!myProfile?.bio && (
+                          <Text style={styles.identityMetaText} numberOfLines={1}>
+                            {myProfile.bio}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.profileLink}
+                      onPress={() => myProfile?.id && Route.push(`/screen/users/${myProfile.id}`)}
+                    >
+                      <Text style={styles.profileLinkText}>View</Text>
+                      <Text style={styles.profileLinkArrow}>›</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <SettingsSection eyebrow="YOUR SPACE">
+                    <SettingsRow
+                      icon={Icons.setting}
+                      title="Profile"
+                      description="Shape your creative identity"
+                      onPress={() => {
+                        closeSettings();
+                        if (myProfile?.id) Route.push(`/screen/users/${myProfile.id}`);
+                      }}
+                    />
+                    <SettingsRow
+                      icon={Icons.share}
+                      title="Portfolio"
+                      description="Manage your professional showcase"
+                      value="Coming soon"
+                    />
+                    <SettingsRow
+                      icon={Icons.heartInactive}
+                      title="Saved Content"
+                      description="Return to work that inspired you"
+                    />
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="EXPERIENCE">
+                    <View style={styles.settingsControlCard}>
+                      <View style={styles.controlHeading}>
+                        <Image source={Icons.setting} style={styles.controlIcon} />
+                        <View style={styles.settingsRowCopy}>
+                          <Text style={styles.settingsRowTitle}>Appearance</Text>
+                          <Text style={styles.settingsRowDescription}>Set the mood for your studio</Text>
+                        </View>
+                      </View>
+                      <OptionChips options={["Light", "Dark", "System"]} selected={appearance} onSelect={setAppearance} />
+                    </View>
+                    <View style={styles.settingsControlCard}>
+                      <View style={styles.controlHeading}>
+                        <Image source={Icons.search} style={styles.controlIcon} />
+                        <View style={styles.settingsRowCopy}>
+                          <Text style={styles.settingsRowTitle}>Feed Preferences</Text>
+                          <Text style={styles.settingsRowDescription}>Tune what appears in your feed</Text>
+                        </View>
+                      </View>
+                      <OptionChips
+                        options={["More personalized", "Balanced", "More diverse"]}
+                        selected={recommendations}
+                        onSelect={setRecommendations}
+                      />
+                    </View>
+                    <View style={styles.settingsControlCard}>
+                      <View style={styles.controlHeading}>
+                        <Image source={Icons.menu} style={styles.controlIcon} />
+                        <View style={styles.settingsRowCopy}>
+                          <Text style={styles.settingsRowTitle}>Content Density</Text>
+                          <Text style={styles.settingsRowDescription}>Choose how much work you see at once</Text>
+                        </View>
+                      </View>
+                      <OptionChips
+                        options={["Comfortable", "Balanced", "Dense"]}
+                        selected={contentDensity}
+                        onSelect={setContentDensity}
+                      />
+                    </View>
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="DISCOVERY">
+                    <SettingsRow
+                      icon={Icons.search}
+                      title="Discovery Interests"
+                      description="Choose the creative categories you discover"
+                    />
+                    <SettingsRow
+                      icon={Icons.heartActive}
+                      title="Recommendations"
+                      description="More personalized, balanced, or diverse"
+                      value={recommendations}
+                    />
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="NOTIFICATIONS">
+                    <SettingsRow
+                      icon={Icons.heartActive}
+                      title="Likes"
+                      description="When someone likes your work"
+                      right={
+                        <Switch
+                          value={notifications.likes}
+                          onValueChange={(value) => setNotifications((current) => ({ ...current, likes: value }))}
+                          trackColor={{ false: "#34343A", true: "#7E252A" }}
+                          thumbColor={notifications.likes ? "#ED3237" : "#8A8A92"}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      icon={Icons.comment}
+                      title="Comments"
+                      description="When someone responds to your work"
+                      right={
+                        <Switch
+                          value={notifications.comments}
+                          onValueChange={(value) => setNotifications((current) => ({ ...current, comments: value }))}
+                          trackColor={{ false: "#34343A", true: "#7E252A" }}
+                          thumbColor={notifications.comments ? "#ED3237" : "#8A8A92"}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      icon={Icons.add}
+                      title="New Followers"
+                      description="When someone follows your profile"
+                      right={
+                        <Switch
+                          value={notifications.followers}
+                          onValueChange={(value) => setNotifications((current) => ({ ...current, followers: value }))}
+                          trackColor={{ false: "#34343A", true: "#7E252A" }}
+                          thumbColor={notifications.followers ? "#ED3237" : "#8A8A92"}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      icon={Icons.share}
+                      title="Messages"
+                      description="When someone reaches out"
+                      right={
+                        <Switch
+                          value={notifications.messages}
+                          onValueChange={(value) => setNotifications((current) => ({ ...current, messages: value }))}
+                          trackColor={{ false: "#34343A", true: "#7E252A" }}
+                          thumbColor={notifications.messages ? "#ED3237" : "#8A8A92"}
+                        />
+                      }
+                    />
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="PRIVACY & SAFETY">
+                    <View style={styles.settingsControlCard}>
+                      <View style={styles.controlHeading}>
+                        <Image source={Icons.setting} style={styles.controlIcon} />
+                        <View style={styles.settingsRowCopy}>
+                          <Text style={styles.settingsRowTitle}>Profile Visibility</Text>
+                          <Text style={styles.settingsRowDescription}>Choose who can discover your work</Text>
+                        </View>
+                      </View>
+                      <OptionChips options={["Public", "Private"]} selected={privacyMode} onSelect={setPrivacyMode} />
+                    </View>
+                    <SettingsRow icon={Icons.setting} title="Security" description="Protect your account and access" />
+                    <SettingsRow icon={Icons.close} title="Blocked Accounts" description="Manage accounts you have blocked" />
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="CREATOR">
+                    <SettingsRow
+                      icon={Icons.add}
+                      title="Professional Mode"
+                      description="Unlock creator-focused features"
+                      value="Preview"
+                    />
+                    <SettingsRow
+                      icon={Icons.search}
+                      title="Portfolio Insights"
+                      description="See how people interact with your work"
+                    />
+                    <SettingsRow
+                      icon={Icons.share}
+                      title="Profile Analytics"
+                      description="Understand your creative reach"
+                    />
+                    <SettingsRow
+                      icon={Icons.setting}
+                      title="Booking Availability"
+                      description="Let people know when you're available"
+                    />
+                  </SettingsSection>
+
+                  <SettingsSection eyebrow="ACCOUNT & SUPPORT">
+                    <SettingsRow icon={Icons.setting} title="Account Details" description={myProfile?.email} />
+                    <SettingsRow icon={Icons.close} title="Help Center" description="Find answers and contact support" />
+                    <SettingsRow icon={Icons.share} title="Community Guidelines" description="Build a thoughtful creative community" />
+                    <SettingsRow icon={Icons.search} title="About X-HIBIT" description="The home for creative discovery" />
+                  </SettingsSection>
+
+                  <Pressable
+                    style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
+                    onPress={() => {
+                      setLogoutError("");
+                      setLogoutVisible(true);
+                    }}
+                  >
+                    <Text style={styles.logoutButtonText}>Log out</Text>
+                  </Pressable>
+                  <Text style={styles.versionText}>X-HIBIT / Creative tools for curious minds</Text>
+                </ScrollView>
               </Animated.View>
+            </Pressable>
+          </Modal>
+        )}
+
+        {isOwner && (
+          <Modal
+            transparent
+            visible={logoutVisible}
+            animationType="fade"
+            onRequestClose={() => !loggingOut && setLogoutVisible(false)}
+          >
+            <View style={styles.confirmOverlay}>
+              <View style={styles.confirmCard}>
+                <Text style={styles.confirmEyebrow}>ACCOUNT ACCESS</Text>
+                <Text style={styles.confirmTitle}>Log out of X-HIBIT?</Text>
+                <Text style={styles.confirmText}>You can sign back in anytime.</Text>
+                {!!logoutError && <Text style={styles.logoutError}>{logoutError}</Text>}
+                <View style={styles.confirmActions}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setLogoutVisible(false)}
+                    disabled={loggingOut}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.confirmLogoutButton}
+                    onPress={handleLogout}
+                    disabled={loggingOut}
+                  >
+                    {loggingOut ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmLogoutText}>Log out</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </Modal>
         )}
@@ -703,19 +1085,82 @@ const styles = StyleSheet.create({
   postTouchable: { width: "100%", marginBottom: 0, borderRadius: 20, overflow: "hidden" },
   postImage: { width: "100%", height: 420, borderRadius: 20 },
 
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)" },
   modalContainer: {
     position: "absolute",
     right: 0,
     top: 0,
     bottom: 0,
-    width: "90%",
-    padding: 20,
-    backgroundColor: "#000000",
+    width: "94%",
+    maxWidth: 620,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: "#0D0D0F",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.12)",
+    shadowColor: "#000",
+    shadowOpacity: 0.45,
+    shadowRadius: 30,
+    shadowOffset: { width: -10, height: 0 },
+    elevation: 24,
   },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 30 },
-  modalTitle: { fontSize: 22, color: "#fff", fontWeight: "bold" },
+  modalContainerDesktop: { width: 560, borderTopLeftRadius: 28, borderBottomLeftRadius: 28 },
+  modalHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "#3A3A40", marginBottom: 18 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 22 },
+  modalKicker: { color: "#ED3237", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 6 },
+  modalTitle: { fontSize: 32, color: "#fff", fontWeight: "800", letterSpacing: 0 },
+  closeButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#1C1C20", justifyContent: "center", alignItems: "center" },
+  closeIcon: { width: 16, height: 16, tintColor: "#D3D3D8" },
   closeText: { color: "#ED3237", fontWeight: "bold" },
+  settingsScrollContent: { paddingBottom: 36 },
+  identityCard: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 22, backgroundColor: "#17171B", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", marginBottom: 28 },
+  identityAvatar: { width: 66, height: 66, borderRadius: 33, backgroundColor: "#292930", borderWidth: 1, borderColor: "rgba(255,255,255,0.22)", justifyContent: "center", alignItems: "center", overflow: "hidden" },
+  identityAvatarImage: { width: "100%", height: "100%" },
+  identityInitials: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  identityCopy: { flex: 1, marginLeft: 14, minWidth: 0 },
+  identityName: { color: "#fff", fontSize: 19, fontWeight: "800" },
+  identityUsername: { color: "#A2A2AA", fontSize: 13, marginTop: 2 },
+  identityMeta: { flexDirection: "row", alignItems: "center", marginTop: 8, minWidth: 0 },
+  identityMetaText: { color: "#D1D1D5", fontSize: 11, textTransform: "capitalize", marginRight: 8, maxWidth: "72%" },
+  profileLink: { flexDirection: "row", alignItems: "center", paddingLeft: 8 },
+  profileLinkText: { color: "#ED3237", fontSize: 12, fontWeight: "800" },
+  profileLinkArrow: { color: "#ED3237", fontSize: 24, lineHeight: 22, marginLeft: 3 },
+  settingsSection: { marginBottom: 26 },
+  settingsEyebrow: { color: "#85858D", fontSize: 10, fontWeight: "800", letterSpacing: 1.7, marginBottom: 10, marginLeft: 4 },
+  settingsGroup: { borderRadius: 18, backgroundColor: "#151518", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  settingsRow: { minHeight: 72, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
+  settingsRowPressed: { backgroundColor: "#202025", opacity: 0.9 },
+  settingsIconBox: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#24242A", justifyContent: "center", alignItems: "center" },
+  settingsIcon: { width: 17, height: 17, tintColor: "#D7D7DC" },
+  settingsRowCopy: { flex: 1, marginLeft: 12, minWidth: 0 },
+  settingsRowTitle: { color: "#F5F5F6", fontSize: 14, fontWeight: "700" },
+  settingsRowDescription: { color: "#85858D", fontSize: 11, lineHeight: 16, marginTop: 3 },
+  settingsValue: { color: "#85858D", fontSize: 10, maxWidth: 92, marginRight: 8, textAlign: "right" },
+  settingsArrow: { width: 22, alignItems: "flex-end" },
+  settingsArrowText: { color: "#777780", fontSize: 25, lineHeight: 25, fontWeight: "300" },
+  settingsControlCard: { padding: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
+  controlHeading: { flexDirection: "row", alignItems: "center" },
+  controlIcon: { width: 17, height: 17, tintColor: "#D7D7DC", marginLeft: 9 },
+  optionChips: { flexDirection: "row", flexWrap: "wrap", marginTop: 13, marginLeft: 45, gap: 7 },
+  optionChip: { minHeight: 32, paddingHorizontal: 11, borderRadius: 16, justifyContent: "center", borderWidth: 1, borderColor: "#37373E", backgroundColor: "#202026" },
+  optionChipSelected: { borderColor: "#ED3237", backgroundColor: "rgba(237,50,55,0.16)" },
+  optionChipText: { color: "#92929A", fontSize: 11, fontWeight: "600" },
+  optionChipTextSelected: { color: "#FF8D91" },
+  logoutButton: { height: 58, borderRadius: 18, borderWidth: 1, borderColor: "rgba(237,50,55,0.5)", backgroundColor: "rgba(237,50,55,0.08)", justifyContent: "center", alignItems: "center", marginTop: 2 },
+  logoutButtonPressed: { backgroundColor: "rgba(237,50,55,0.18)" },
+  logoutButtonText: { color: "#F46D72", fontSize: 15, fontWeight: "800" },
+  versionText: { color: "#55555D", textAlign: "center", fontSize: 10, marginTop: 18 },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.78)", justifyContent: "center", alignItems: "center", padding: 24 },
+  confirmCard: { width: "100%", maxWidth: 400, borderRadius: 24, backgroundColor: "#19191D", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", padding: 24 },
+  confirmEyebrow: { color: "#ED3237", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 12 },
+  confirmTitle: { color: "#fff", fontSize: 23, fontWeight: "800" },
+  confirmText: { color: "#9999A2", fontSize: 14, marginTop: 8 },
+  logoutError: { color: "#F46D72", fontSize: 12, marginTop: 14 },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 24 },
+  cancelButton: { flex: 1, height: 48, borderRadius: 14, backgroundColor: "#29292F", justifyContent: "center", alignItems: "center" },
+  cancelButtonText: { color: "#E5E5E8", fontSize: 14, fontWeight: "700" },
+  confirmLogoutButton: { flex: 1, height: 48, borderRadius: 14, backgroundColor: "#ED3237", justifyContent: "center", alignItems: "center" },
+  confirmLogoutText: { color: "#fff", fontSize: 14, fontWeight: "800" },
   settingItem: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 15 },
   settingText: { color: "#fff", fontSize: 16 },
 });
